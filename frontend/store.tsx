@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Product, Table, Order, TableStatus, OrderStatus, Establishment, User, OrderItem, Feedback, ThemeConfig } from './types';
@@ -451,3 +452,6 @@ export const useApp = () => {
   if (!context) throw new Error('useApp must be used within AppProvider');
   return context;
 };
+=======
+// ...existing code...
+>>>>>>> 988c595ccfaec2ff0d4eee9145861acc3eaf684f

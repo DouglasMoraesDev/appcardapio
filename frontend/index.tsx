@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -14,3 +15,6 @@ root.render(
     <App />
   </React.StrictMode>
 );
+=======
+// ...existing code...
+>>>>>>> 988c595ccfaec2ff0d4eee9145861acc3eaf684f

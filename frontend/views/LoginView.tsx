@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 import React, { useState } from 'react';
 // Fix: Use namespace import for react-router-dom to resolve "no exported member" errors
@@ -93,3 +94,6 @@ const LoginView: React.FC = () => {
 };
 
 export default LoginView;
+=======
+// ...existing code...
+>>>>>>> 988c595ccfaec2ff0d4eee9145861acc3eaf684f

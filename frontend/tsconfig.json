@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
   "compilerOptions": {
     "target": "ES2022",
@@ -24,3 +25,6 @@
     "noEmit": true
   }
 }
+=======
+// ...existing code...
+>>>>>>> 988c595ccfaec2ff0d4eee9145861acc3eaf684f

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 import React, { useState } from 'react';
 import { useApp } from '../store';
@@ -297,3 +298,6 @@ const WaiterDashboard: React.FC = () => {
 };
 
 export default WaiterDashboard;
+=======
+// ...existing code...
+>>>>>>> 988c595ccfaec2ff0d4eee9145861acc3eaf684f
