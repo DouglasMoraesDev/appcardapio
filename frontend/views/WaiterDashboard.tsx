@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 
 import React, { useState } from 'react';
 import { useApp } from '../store';
@@ -150,15 +149,45 @@ const WaiterDashboard: React.FC = () => {
         <div className={`absolute bottom-0 left-0 right-0 h-[85vh] lg:h-full lg:relative bg-[#0d1f15] rounded-t-[4rem] lg:rounded-none border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col shadow-2xl overflow-hidden`}>
           {selectedTable && tableDetail ? (
             <>
-              <div className="p-8 lg:p-10 border-b border-white/5 bg-[#06120c]/50 flex justify-between items-center shrink-0">
-                <div>
-                  <h3 className="text-3xl font-serif text-[#d18a59] uppercase tracking-tighter leading-none">Mesa {tableDetail.number}</h3>
-                  <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest mt-2">Detalhamento de Consumo</p>
+              <div className="p-8 lg:p-10 border-b border-white/5 bg-[#06120c]/50 flex flex-col gap-4 shrink-0">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-3xl font-serif text-[#d18a59] uppercase tracking-tighter leading-none">Mesa {tableDetail.number}</h3>
+                    <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest mt-2">Detalhamento de Consumo</p>
+                  </div>
+                  <button onClick={() => setSelectedTable(null)} className="p-3 bg-white/5 rounded-full text-gray-500 hover:text-white"><X className="w-6 h-6" /></button>
                 </div>
-                <button onClick={() => setSelectedTable(null)} className="p-3 bg-white/5 rounded-full text-gray-500 hover:text-white"><X className="w-6 h-6" /></button>
+                <div className="flex flex-col gap-2 lg:flex-row lg:gap-4 mt-2">
+                  <button 
+                    onClick={() => { setDeviceTableId(selectedTable); window.location.hash = '#/mesa'; }}
+                    className="w-full lg:w-auto py-3 px-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] bg-[#d18a59] text-black hover:opacity-90 shadow-lg">
+                    Ver Cardápio/Conta da Mesa
+                  </button>
+                  <button 
+                    onClick={handleFinalizeTable}
+                    style={{ backgroundColor: (allItemsDelivered || !hasPendingOrders) ? theme.primary : undefined }}
+                    className={`w-full lg:w-auto py-3 px-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 shadow-2xl ${
+                      allItemsDelivered || !hasPendingOrders 
+                        ? 'text-black hover:opacity-90' 
+                        : 'bg-white/5 text-gray-700 cursor-not-allowed border border-white/5'
+                    }`}>
+                    {allItemsDelivered || !hasPendingOrders ? (
+                      <>Liberar Mesa <ChevronRight className="w-5 h-5" /></>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                        <span>Itens Pendentes...</span>
+                      </div>
+                    )}
+                  </button>
+                  <div className="flex-1 flex items-end justify-end">
+                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1 mr-2">Subtotal</span>
+                    <span className="text-2xl font-serif text-[#d18a59] font-black leading-none">R$ {currentTableOrders.reduce((a, b) => a + b.total, 0).toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
-              
-              <div className="flex-1 p-8 lg:p-10 overflow-y-auto space-y-6 no-scrollbar" style={{ paddingBottom: '180px' }}>
+
+              <div className="flex-1 p-8 lg:p-10 overflow-y-auto space-y-6 no-scrollbar">
                 {tableDetail.status === TableStatus.CALLING_WAITER && (
                   <div className="bg-red-500/20 border border-red-500/30 p-6 rounded-[2rem] flex items-center justify-between mb-4 animate-in zoom-in">
                     <div className="flex items-center gap-4">
@@ -228,34 +257,6 @@ const WaiterDashboard: React.FC = () => {
                 )}
               </div>
               
-              <div className="p-8 lg:p-10 bg-[#06120c]/80 backdrop-blur-md border-t border-white/10 space-y-6 fixed bottom-0 left-0 right-0 z-20" style={{ maxWidth: '450px', margin: '0 auto' }}>
-                                <button 
-                                  onClick={() => { setDeviceTableId(selectedTable); window.location.hash = '#/mesa'; }}
-                                  className="w-full py-3 mb-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] bg-[#d18a59] text-black hover:opacity-90 shadow-lg">
-                                  Ver Cardápio/Conta da Mesa
-                                </button>
-                <div className="flex justify-between items-end">
-                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1">Subtotal de Consumo</span>
-                  <span className="text-4xl font-serif text-[#d18a59] font-black leading-none">R$ {currentTableOrders.reduce((a, b) => a + b.total, 0).toFixed(2)}</span>
-                </div>
-                <button 
-                  onClick={handleFinalizeTable}
-                  style={{ backgroundColor: (allItemsDelivered || !hasPendingOrders) ? theme.primary : undefined }}
-                  className={`w-full py-6 rounded-3xl font-black text-[11px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 shadow-2xl ${
-                    allItemsDelivered || !hasPendingOrders 
-                      ? 'text-black hover:opacity-90' 
-                      : 'bg-white/5 text-gray-700 cursor-not-allowed border border-white/5'
-                  }`}>
-                  {allItemsDelivered || !hasPendingOrders ? (
-                     <>Liberar Mesa <ChevronRight className="w-5 h-5" /></>
-                  ) : (
-                     <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                        <span>Itens Pendentes...</span>
-                     </div>
-                  )}
-                </button>
-              </div>
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-8 opacity-10 h-full">
@@ -298,6 +299,3 @@ const WaiterDashboard: React.FC = () => {
 };
 
 export default WaiterDashboard;
-=======
-// ...existing code...
->>>>>>> 988c595ccfaec2ff0d4eee9145861acc3eaf684f

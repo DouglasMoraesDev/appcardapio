@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../store';
@@ -503,6 +502,3 @@ const CustomerView: React.FC = () => {
 };
 
 export default CustomerView;
-=======
-// ...existing code...
->>>>>>> 988c595ccfaec2ff0d4eee9145861acc3eaf684f

@@ -4,6 +4,37 @@ import { authenticate, authorize } from '../middleware/auth';
 
 const router = Router();
 
+// Endpoint para relatório de mesas fechadas do dia
+router.get('/closed-today', authenticate, authorize(['admin']), async (req, res) => {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+  // Busca pedidos com status PAID ou DELIVERED do dia
+  const closedOrders = await prisma.order.findMany({
+    where: {
+      status: { in: ['PAID', 'DELIVERED'] },
+      timestamp: { gte: startOfDay, lte: endOfDay }
+    },
+    include: { items: true, table: true }
+  });
+  // Agrupa por mesa
+  const report = closedOrders.reduce((acc, order) => {
+    const tableId = order.tableId;
+    if (!acc[tableId]) {
+      acc[tableId] = {
+        tableNumber: order.table.number,
+        total: 0,
+        orders: [],
+      };
+    }
+    acc[tableId].total += order.total;
+    acc[tableId].orders.push(order);
+    return acc;
+  }, {});
+  res.json(Object.values(report));
+});
+
 router.get('/', async (req, res) => {
   // Se for admin ou garçom, retorna todos os pedidos
   const token = req.headers.authorization?.split(' ')[1];

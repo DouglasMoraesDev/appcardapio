@@ -17,7 +17,7 @@ const TrocaMesaModal: React.FC<{ onLiberar: () => void; onClose: () => void }> =
       const res = await fetch('http://localhost:4000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'garcom', password: senha, role: 'waiter' })
+        body: JSON.stringify({ username: 'douglas', password: senha, role: 'waiter' })
       });
       if (!res.ok) {
         setErro('Senha incorreta!');
