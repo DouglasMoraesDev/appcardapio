@@ -3,9 +3,23 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../store';
 import { TableStatus, OrderItem, Table, Order, Product } from '../types';
 import { ShoppingCart, Bell, Receipt, Plus, Minus, X, Check, Search, ChevronLeft, Lock, Star, Sparkles, MessageSquare, Timer, Send, UtensilsCrossed } from 'lucide-react';
+import TrocaMesaModal from './TrocaMesaModal';
 
 const CustomerView: React.FC = () => {
-  const { products, addOrder, updateTableStatus, tables, deviceTableId, setDeviceTableId, orders, categories: appCategories, addFeedback, establishment, openTable } = useApp();
+  const { products, addOrder, updateTableStatus, tables, deviceTableId, setDeviceTableId, categories: appCategories, addFeedback, establishment, openTable, fetchOrdersByTable, currentUser } = useApp();
+  // Estado local para pedidos do cliente
+  const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
+  // Busca pedidos da mesa sem sobrescrever o global
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (!deviceTableId) return;
+      const pedidos = await fetchOrdersByTable(deviceTableId);
+      setCustomerOrders(pedidos);
+    };
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 5000);
+    return () => clearInterval(interval);
+  }, [deviceTableId, fetchOrdersByTable]);
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [activeCategory, setActiveCategory] = useState('Todas');
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,7 +27,6 @@ const CustomerView: React.FC = () => {
   const [isBillOpen, setIsBillOpen] = useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isChangeTableOpen, setIsChangeTableOpen] = useState(false);
-  const [pinInput, setPinInput] = useState('');
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
   const [tableInput, setTableInput] = useState('');
 
@@ -22,7 +35,7 @@ const CustomerView: React.FC = () => {
   const [feedbackComment, setFeedbackComment] = useState('');
 
   const currentTable = tables.find(t => t.id === deviceTableId);
-  const tableOrders = orders.filter(o => o.tableId === deviceTableId);
+  const tableOrders = customerOrders;
   const subTotal = tableOrders.reduce((acc, o) => acc + o.total, 0);
   const serviceValue = subTotal * (establishment.serviceCharge / 100);
   const grandTotal = subTotal + serviceValue;
@@ -80,6 +93,9 @@ const CustomerView: React.FC = () => {
   const handlePlaceOrder = async () => {
     if (cart.length === 0 || !deviceTableId) return;
     await addOrder(deviceTableId, cart);
+    // Após adicionar pedido, buscar novamente pedidos da mesa para garantir sincronização
+    const pedidos = await fetchOrdersByTable(deviceTableId);
+    setCustomerOrders(pedidos);
     setCart([]);
     setIsCartOpen(false);
     showNotification("Pedido enviado para a cozinha!", "success");
@@ -112,51 +128,15 @@ const CustomerView: React.FC = () => {
     showNotification("Obrigado pela sua avaliação!", "success");
   };
 
-  const handleConfirmChangeTable = () => {
-    if (pinInput === '1234') {
-      setDeviceTableId(null);
-      setIsChangeTableOpen(false);
-      setPinInput('');
-    } else {
-      alert("PIN inválido!");
-    }
+  // Troca de mesa só com senha do garçom
+  const handleLiberarMesa = () => {
+    setIsChangeTableOpen(false);
+    window.location.reload(); // força reload para garantir tela limpa
   };
 
+  // Se não houver mesa ativa, não renderiza nada (tablet/garçom sempre tem mesa definida)
   if (!deviceTableId) {
-    return (
-      <div style={{ backgroundColor: theme.background }} className="min-h-screen flex flex-col items-center justify-center p-6 text-center overflow-hidden">
-        <div className="max-w-md w-full space-y-12 animate-in fade-in duration-700">
-          <div className="relative">
-            <div className="absolute inset-0 bg-[#d18a59]/20 blur-[60px] rounded-full"></div>
-            <img src={establishment.logo} className="h-32 mx-auto relative z-10 filter drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]" alt="Logo" />
-          </div>
-          <div className="space-y-4">
-            <h2 style={{ color: theme.primary }} className="text-5xl font-serif uppercase tracking-tighter">Seja Bem-vindo</h2>
-            <p style={{ color: theme.text }} className="text-[11px] uppercase tracking-[0.4em] font-black opacity-60">Para iniciar o atendimento, informe seu lugar</p>
-          </div>
-          <form onSubmit={handleStartService} className="space-y-8 bg-[#0d1f15] p-10 rounded-[3rem] border border-white/5 shadow-2xl">
-             <div className="space-y-4">
-                <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest block text-left ml-2">Qual o número da sua mesa?</label>
-                <input 
-                  type="number" 
-                  value={tableInput}
-                  onChange={e => setTableInput(e.target.value)}
-                  placeholder="00"
-                  className="w-full bg-[#06120c] border border-white/5 rounded-3xl py-8 text-center text-6xl font-serif text-[#d18a59] outline-none focus:ring-1 focus:ring-[#d18a59] placeholder:opacity-10"
-                  autoFocus
-                />
-             </div>
-             <button 
-              type="submit"
-              disabled={!tableInput}
-              style={{ backgroundColor: theme.primary }}
-              className="w-full text-black font-black py-6 rounded-2xl text-[12px] uppercase tracking-[0.3em] shadow-xl hover:opacity-90 transition-all active:scale-95 disabled:opacity-20">
-               Começar a Pedir
-             </button>
-          </form>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -504,28 +484,7 @@ const CustomerView: React.FC = () => {
       )}
 
       {isChangeTableOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setIsChangeTableOpen(false)}></div>
-          <div style={{ backgroundColor: theme.card }} className="relative w-full max-w-xs rounded-[3rem] p-10 border border-white/5 space-y-8 shadow-2xl animate-in zoom-in-95">
-            <div className="text-center space-y-3">
-              <Lock style={{ color: theme.primary }} className="w-10 h-10 mx-auto" />
-              <h3 style={{ color: theme.primary }} className="font-serif text-2xl uppercase tracking-widest">Área Restrita</h3>
-              <p className="text-[10px] text-white uppercase font-bold opacity-80">Solicite o PIN ao garçom</p>
-            </div>
-            <input 
-              type="password" 
-              placeholder="••••"
-              value={pinInput}
-              onChange={e => setPinInput(e.target.value)}
-              className="w-full bg-black/50 border border-white/10 rounded-3xl py-6 text-center text-4xl tracking-[0.5em] text-white outline-none"
-              autoFocus
-            />
-            <div className="flex gap-4">
-              <button onClick={() => setIsChangeTableOpen(false)} className="flex-1 text-xs font-bold text-white uppercase opacity-40">Cancelar</button>
-              <button onClick={handleConfirmChangeTable} style={{ backgroundColor: theme.primary }} className="flex-1 text-black py-4 rounded-2xl text-[10px] font-bold uppercase">Liberar</button>
-            </div>
-          </div>
-        </div>
+        <TrocaMesaModal onLiberar={handleLiberarMesa} onClose={() => setIsChangeTableOpen(false)} />
       )}
 
       {notification && (

@@ -17,11 +17,19 @@ async function main(){
     }
   });
 
+
   // Seed admin user
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
     update: { name: 'Administrador Master' },
-    create: { name: 'Administrador Master', username: 'admin', password: '1234', role: 'admin' }
+    create: { name: 'Administrador Master', username: 'admin', password: 'admin', role: 'admin' }
+  });
+
+  // Seed waiter user
+  const waiter = await prisma.user.upsert({
+    where: { username: 'douglas' },
+    update: { name: 'Douglas' },
+    create: { name: 'Douglas', username: 'douglas', password: '1234', role: 'waiter' }
   });
 
   // Seed establishment

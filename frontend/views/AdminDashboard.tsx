@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../store';
 import { Plus, Trash2, Edit3, Beer, Users, Grid, DollarSign, Image as ImageIcon, Tag, X, Check, Star, TrendingUp, BarChart3, PieChart, ShoppingBag, MessageSquare, Clock, Settings, Palette, Lock, Save } from 'lucide-react';
-import { Product } from '../types';
+import { Product } from './types';
 
 const AdminDashboard: React.FC = () => {
   const { 
@@ -36,12 +36,23 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      alert("Alterações salvas com sucesso!");
-    }, 800);
+    try {
+      const res = await fetch('http://localhost:4000/api/establishment', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(establishment)
+      });
+      if (res.ok) {
+        alert('Alterações salvas com sucesso!');
+      } else {
+        alert('Erro ao salvar alterações.');
+      }
+    } catch (e) {
+      alert('Erro ao salvar alterações.');
+    }
+    setIsSaving(false);
   };
 
   const handleAddProduct = (e: React.FormEvent) => {
@@ -86,12 +97,15 @@ const AdminDashboard: React.FC = () => {
   const totalRevenue = orders.reduce((acc, o) => acc + o.total, 0);
   const averageTicket = orders.length > 0 ? totalRevenue / orders.length : 0;
   
-  const productRanking = orders.flatMap(o => o.items).reduce((acc: any, item) => {
-    acc[item.name] = (acc[item.name] || 0) + item.quantity;
+  // Corrige para considerar produtos existentes e não só pedidos
+  const productRanking = products.reduce((acc: any, p) => {
+    const totalVendidos = orders.flatMap(o => o.items).filter(i => i.productId === p.id).reduce((sum, i) => sum + i.quantity, 0);
+    acc[p.name] = totalVendidos;
     return acc;
   }, {});
 
   const topProducts = Object.entries(productRanking)
+    .filter(([, qty]) => qty > 0)
     .sort(([, a]: any, [, b]: any) => b - a)
     .slice(0, 5);
 
@@ -144,6 +158,7 @@ const AdminDashboard: React.FC = () => {
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><DollarSign className="w-12 h-12" /></div>
               <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest">Ticket Médio</p>
               <p className="text-3xl font-serif text-white mt-2">R$ {averageTicket.toFixed(2)}</p>
+              <p className="text-[10px] text-gray-400 mt-2">Ticket médio = Receita Total / Nº de Pedidos</p>
             </div>
             <div className="bg-[#0d1f15] p-6 rounded-3xl border border-white/5 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><Star className="w-12 h-12" /></div>
@@ -176,11 +191,12 @@ const AdminDashboard: React.FC = () => {
                   const catName = typeof cat === 'string' ? cat : cat?.name;
                   const count = products.filter(p => p.category === catName).length;
                   const totalProducts = products.length || 1;
-                  const height = Math.max(10, (count / totalProducts) * 100);
+                  const height = totalProducts > 0 ? Math.max(10, (count / totalProducts) * 100) : 10;
                   return (
                     <div key={catName} className="flex flex-col items-center gap-2 w-16 shrink-0 group">
                       <div className="w-8 bg-[#d18a59]/20 border-t-2 border-x-2 border-[#d18a59]/40 rounded-t-lg transition-all group-hover:bg-[#d18a59]/40" style={{ height: `${height}%` }}></div>
                       <span className="text-[8px] uppercase font-black text-gray-500 rotate-45 mt-4 whitespace-nowrap block w-full text-center">{catName}</span>
+                      <span className="text-[10px] text-[#d18a59] font-black">{count}</span>
                     </div>
                   );
                 })}
@@ -215,7 +231,7 @@ const AdminDashboard: React.FC = () => {
                     <h4 className="font-bold text-white text-sm line-clamp-1">{product.name}</h4>
                     <span className="text-[#d18a59] font-bold text-xs whitespace-nowrap">R$ {product.price.toFixed(2)}</span>
                   </div>
-                  <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest">{product.category}</p>
+                  <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest">{typeof product.category === 'string' ? product.category : product.category?.name}</p>
                     <div className="flex gap-2 pt-4">
                     <button className="flex-1 bg-[#06120c] p-2.5 rounded-xl text-gray-500 hover:text-white transition-colors flex justify-center border border-white/5"><Edit3 className="w-4 h-4" /></button>
                     <button onClick={() => { if(confirm('Excluir?')) deleteProduct(product.id) }} className="flex-1 bg-[#06120c] p-2.5 rounded-xl text-gray-500 hover:text-red-400 transition-colors flex justify-center border border-white/5"><Trash2 className="w-4 h-4" /></button>

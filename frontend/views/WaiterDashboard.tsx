@@ -5,8 +5,23 @@ import { TableStatus, OrderStatus, Table } from '../types';
 import { Bell, CheckCircle, Clock, UtensilsCrossed, AlertTriangle, Grid, DollarSign, ChevronRight, Check, MessageSquare, X, PlusCircle } from 'lucide-react';
 
 const WaiterDashboard: React.FC = () => {
-  const { tables, orders, updateTableStatus, updateOrderItemStatus, updateOrderStatus, establishment, openTable } = useApp();
+  const { tables, orders, setOrders, updateTableStatus, updateOrderItemStatus, updateOrderStatus, establishment, openTable, setDeviceTableId } = useApp();
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
+
+  // Busca pedidos da mesa ao selecionar, mas só atualiza o estado global orders do garçom
+  const { fetchOrdersByTable } = useApp();
+  const handleSelectTable = async (tableId: string) => {
+    setSelectedTable(tableId);
+    try {
+      const pedidos = await fetchOrdersByTable(tableId);
+      // Atualiza apenas os pedidos da mesa selecionada no estado global, mantendo os outros
+      setOrders(prev => {
+        // Remove pedidos antigos dessa mesa e adiciona os novos
+        const outros = prev.filter(o => String(o.tableId) !== String(tableId));
+        return [...outros, ...pedidos];
+      });
+    } catch (e) {}
+  };
   const [isOpeningTable, setIsOpeningTable] = useState(false);
   const [newTableNumber, setNewTableNumber] = useState('');
 
@@ -50,8 +65,10 @@ const WaiterDashboard: React.FC = () => {
     if (!newTableNumber) return;
     const tableId = await openTable(parseInt(newTableNumber));
     setSelectedTable(tableId);
+    setDeviceTableId(tableId); // Garante que a mesa ativa está definida
     setIsOpeningTable(false);
     setNewTableNumber('');
+    window.location.hash = '#/mesa';
   };
 
   const clearNotification = (e: React.MouseEvent, tableId: string) => {
@@ -91,7 +108,7 @@ const WaiterDashboard: React.FC = () => {
               {activeTables.map(table => (
                 <div key={table.id} className="relative group">
                   <button
-                    onClick={() => setSelectedTable(table.id)}
+                    onClick={() => handleSelectTable(table.id)}
                     style={{ borderColor: selectedTable === table.id ? theme.primary : 'rgba(255,255,255,0.05)' }}
                     className={`w-full aspect-square flex flex-col items-center justify-center rounded-[2.5rem] border-2 transition-all relative ${getTableColor(table.status)} ${selectedTable === table.id ? 'scale-105 shadow-2xl bg-[#0d1f15]' : ''}`}
                   >
@@ -140,7 +157,7 @@ const WaiterDashboard: React.FC = () => {
                 <button onClick={() => setSelectedTable(null)} className="p-3 bg-white/5 rounded-full text-gray-500 hover:text-white"><X className="w-6 h-6" /></button>
               </div>
               
-              <div className="flex-1 p-8 lg:p-10 overflow-y-auto space-y-6 no-scrollbar pb-32">
+              <div className="flex-1 p-8 lg:p-10 overflow-y-auto space-y-6 no-scrollbar" style={{ paddingBottom: '180px' }}>
                 {tableDetail.status === TableStatus.CALLING_WAITER && (
                   <div className="bg-red-500/20 border border-red-500/30 p-6 rounded-[2rem] flex items-center justify-between mb-4 animate-in zoom-in">
                     <div className="flex items-center gap-4">
@@ -187,7 +204,7 @@ const WaiterDashboard: React.FC = () => {
                               </div>
                               {item.status === 'PENDING' ? (
                                 <button 
-                                  onClick={() => updateOrderItemStatus(order.id, item.productId, 'DELIVERED')}
+                                  onClick={() => updateOrderItemStatus(order.id, item.id, 'DELIVERED')}
                                   style={{ backgroundColor: theme.primary }}
                                   className="text-black p-3 rounded-2xl hover:scale-110 transition-all shadow-xl active:scale-95">
                                   <Check className="w-5 h-5" />
@@ -210,7 +227,12 @@ const WaiterDashboard: React.FC = () => {
                 )}
               </div>
               
-              <div className="p-8 lg:p-10 bg-[#06120c]/80 backdrop-blur-md border-t border-white/10 space-y-6 absolute bottom-0 left-0 right-0 z-20">
+              <div className="p-8 lg:p-10 bg-[#06120c]/80 backdrop-blur-md border-t border-white/10 space-y-6 fixed bottom-0 left-0 right-0 z-20" style={{ maxWidth: '450px', margin: '0 auto' }}>
+                                <button 
+                                  onClick={() => { setDeviceTableId(selectedTable); window.location.hash = '#/mesa'; }}
+                                  className="w-full py-3 mb-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] bg-[#d18a59] text-black hover:opacity-90 shadow-lg">
+                                  Ver Cardápio/Conta da Mesa
+                                </button>
                 <div className="flex justify-between items-end">
                   <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1">Subtotal de Consumo</span>
                   <span className="text-4xl font-serif text-[#d18a59] font-black leading-none">R$ {currentTableOrders.reduce((a, b) => a + b.total, 0).toFixed(2)}</span>

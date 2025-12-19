@@ -8,6 +8,7 @@ import WaiterDashboard from './views/WaiterDashboard';
 import CustomerView from './views/CustomerView';
 import RegistrationView from './views/RegistrationView';
 import LoginView from './views/LoginView';
+import MesaAberturaView from './views/MesaAberturaView';
 import { LogOut, LayoutDashboard, UserCheck, Utensils, Settings } from 'lucide-react';
 
 const { HashRouter, Routes, Route, Link, useNavigate, useLocation, Navigate } = ReactRouterDOM;
@@ -33,17 +34,7 @@ const SetupDevice = () => {
           <p className="text-gray-500 max-w-md mx-auto uppercase text-[10px] font-bold tracking-[0.2em]">Selecione o modo de operação para este terminal</p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Link to="/customer" className="group p-8 bg-zinc-900/50 border border-zinc-800 rounded-3xl hover:border-[#d18a59] transition-all flex flex-col items-center gap-4 hover:bg-zinc-800/80">
-            <div className="p-4 bg-[#d18a59]/10 rounded-full group-hover:scale-110 transition-transform">
-              <Utensils className="w-8 h-8 text-[#d18a59]" />
-            </div>
-            <div className="text-center">
-              <span className="block font-bold text-white uppercase text-xs tracking-widest">Mesa</span>
-              <span className="text-[10px] text-gray-500 uppercase">Terminal de Cliente</span>
-            </div>
-          </Link>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Link to="/login/waiter" className="group p-8 bg-zinc-900/50 border border-zinc-800 rounded-3xl hover:border-[#d18a59] transition-all flex flex-col items-center gap-4 hover:bg-zinc-800/80">
             <div className="p-4 bg-[#d18a59]/10 rounded-full group-hover:scale-110 transition-transform">
               <UserCheck className="w-8 h-8 text-[#d18a59]" />
@@ -128,6 +119,8 @@ const App: React.FC = () => {
             <Route path="/login/:role" element={<LoginView />} />
             <Route path="/admin" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
             <Route path="/waiter" element={<ProtectedRoute role="waiter"><WaiterDashboard /></ProtectedRoute>} />
+            <Route path="/abrir-mesa" element={<ProtectedRoute role="waiter"><MesaAberturaView onMesaAberta={() => window.location.hash = '#/mesa'}/></ProtectedRoute>} />
+            <Route path="/mesa" element={<ProtectedRoute role="waiter"><CustomerView /></ProtectedRoute>} />
             <Route path="/customer" element={<CustomerView />} />
           </Routes>
         </NavigationWrapper>

@@ -24,7 +24,10 @@ interface AppContextType {
   logout: () => Promise<void>;
   deviceTableId: string | null;
   setDeviceTableId: (id: string | null) => void;
-  
+
+  // Novo: buscar pedidos de uma mesa sem sobrescrever o global
+  fetchOrdersByTable: (tableId: string) => Promise<Order[]>;
+
   // Actions
   addOrder: (tableId: string, items: any[]) => void;
   updateTableStatus: (tableId: string, status: TableStatus) => void;
@@ -59,25 +62,29 @@ const INITIAL_CATEGORIES: string[] = [];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [establishment, setEstablishment] = useState<Establishment>({ name: '', logo: '', address: '', serviceCharge: 10, theme: INITIAL_THEME } as any);
-
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-
   const [categories, setCategories] = useState<string[]>(INITIAL_CATEGORIES);
-
   const [tables, setTables] = useState<Table[]>([]);
-
   const [orders, setOrders] = useState<Order[]>([]);
-
   const [waiters, setWaiters] = useState<User[]>([]);
-
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-
   const [deviceTableId, setDeviceTableId] = useState<string | null>(null);
 
-  // Load initial data from backend and refresh access token (refresh cookie)
+  // Função para buscar pedidos de uma mesa específica (sem sobrescrever o global)
+  const fetchOrdersByTable = useCallback(async (tableId: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/orders?tableId=${tableId}`);
+      if (res.ok) {
+        const pedidos = await res.json();
+        return pedidos.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) }));
+      }
+    } catch (e) {}
+    return [];
+  }, []);
+
+  // Load initial data from backend e refresh access token (refresh cookie)
   useEffect(() => {
     (async () => {
       try {
@@ -123,13 +130,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (Array.isArray(fbRes)) setFeedbacks(fbRes.map((f: any) => ({ ...f, id: String(f.id) })));
 
         // Só busca dados protegidos se autenticado
-        if (localAccess) {
+        if (localAccess && d && d.user && d.user.role === 'admin') {
           const [orderRes, userRes] = await Promise.all([
             fetchWithRetry(`${API_BASE}/orders`).catch(() => []),
             fetchWithRetry(`${API_BASE}/users`).catch(() => [])
           ]);
-          if (Array.isArray(orderRes)) setOrders(orderRes.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, productId: String(it.productId) })) })));
+          if (Array.isArray(orderRes)) setOrders(orderRes.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })));
           if (Array.isArray(userRes)) setWaiters(userRes.filter((u:any)=>u.role==='waiter').map((u:any)=>({ ...u, id: String(u.id) })));
+        } else if (localAccess && d && d.user && d.user.role === 'customer') {
+          // Para cliente, busca apenas pedidos da mesa
+          const tableId = localStorage.getItem('deviceTableId');
+          if (tableId) {
+            const orderRes = await fetchWithRetry(`${API_BASE}/orders?tableId=${tableId}`).catch(() => []);
+            if (Array.isArray(orderRes)) setOrders(orderRes.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })));
+          }
         }
       } catch (err) {
         // failed to load remote API during init — fallback silently to local state
@@ -175,6 +189,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAccessToken(access);
         headers['Authorization'] = `Bearer ${access}`;
         res = await fetch(input, { credentials: 'include', ...init, headers });
+      } else {
+        // Se não conseguir renovar, faz logout e força login
+        setAccessToken(null);
+        setCurrentUser(null);
+        // Redireciona para login (reload simples para garantir)
+        window.location.reload();
+        throw new Error('Sessão expirada. Faça login novamente.');
       }
     }
     return res;
@@ -229,8 +250,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const res = await fetchWithAuth(`${API_BASE}/orders`, { method: 'POST', body: JSON.stringify({ tableId: Number(tableId), items: normalizedItems, total: subtotal }) });
       const created = await res.json();
-      setOrders(prev => [...prev, { ...created, id: String(created.id) }]);
       await updateTableStatus(String(created.tableId), TableStatus.OCCUPIED);
+      // Após criar pedido, buscar novamente pedidos da mesa para garantir que os itens tenham o id correto do backend
+      const pedidosRes = await fetchWithAuth(`${API_BASE}/orders?tableId=${tableId}`);
+      if (pedidosRes.ok) {
+        const pedidos = await pedidosRes.json();
+        setOrders(pedidos.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })));
+      }
     } catch (e) {
       const newOrder: Order = {
         id: Math.random().toString(36).substr(2, 9),
@@ -412,7 +438,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addCategory,
       deleteCategory,
       updateCategory,
-      openTable
+      openTable,
+      fetchOrdersByTable
     }}>
       {children}
     </AppContext.Provider>

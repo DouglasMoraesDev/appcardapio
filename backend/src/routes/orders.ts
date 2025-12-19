@@ -4,9 +4,28 @@ import { authenticate, authorize } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', authenticate, authorize(['admin','waiter']), async (req, res) => {
-  const orders = await prisma.order.findMany({ include: { items: true } });
-  res.json(orders);
+router.get('/', async (req, res) => {
+  // Se for admin ou garçom, retorna todos os pedidos
+  const token = req.headers.authorization?.split(' ')[1];
+  let user = null;
+  if (token) {
+    try {
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'changeme');
+      user = decoded;
+    } catch {}
+  }
+  if (user && (user.role === 'admin' || user.role === 'waiter')) {
+    const orders = await prisma.order.findMany({ include: { items: true } });
+    return res.json(orders);
+  }
+  // Se for cliente, permite buscar pedidos da mesa
+  const tableId = req.query.tableId;
+  if (tableId) {
+    const orders = await prisma.order.findMany({ where: { tableId: Number(tableId) }, include: { items: true } });
+    return res.json(orders);
+  }
+  return res.status(403).json({ error: 'Acesso negado' });
 });
 
 router.post('/', async (req, res) => {

@@ -29,7 +29,8 @@ const LoginView: React.FC = () => {
         // accessToken returned in data.accessToken (kept in memory)
         setAccessToken(data.accessToken);
         setCurrentUser({ id: String(data.user.id), name: data.user.name, role: data.user.role, username });
-        if (data.user.role === 'admin') navigate('/admin'); else navigate('/waiter');
+        if (data.user.role === 'admin') navigate('/admin');
+        else if (data.user.role === 'waiter') navigate('/waiter');
       } catch (err) {
         console.error(err);
         alert('Erro ao conectar com o servidor');

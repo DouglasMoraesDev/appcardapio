@@ -1,3 +1,4 @@
+
 import { Router } from 'express';
 import prisma from '../prisma';
 import jwt from 'jsonwebtoken';
@@ -12,6 +13,27 @@ const REFRESH_EXPIRES_DAYS = 7;
 function makeRefreshToken(){
   return crypto.randomBytes(48).toString('hex');
 }
+
+// Registro de novo usuário
+router.post('/register', async (req, res) => {
+  const { username, password, name, role } = req.body;
+  if (!username || !password || !name || !role) {
+    return res.status(400).json({ error: 'username, password, name e role são obrigatórios' });
+  }
+  try {
+    // Verifica se já existe usuário com esse username
+    const exists = await prisma.user.findFirst({ where: { username } });
+    if (exists) {
+      return res.status(409).json({ error: 'Usuário já existe' });
+    }
+    // Criptografa a senha
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({ data: { username, password: hashed, name, role } });
+    res.json({ id: user.id, username: user.username, name: user.name, role: user.role });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Erro ao registrar usuário', details: error.message });
+  }
+});
 
 router.post('/login', async (req, res) => {
   const { username, password, role } = req.body;
