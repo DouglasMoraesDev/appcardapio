@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
 import React, { useState } from 'react';
 import { useApp } from '../store';
 import { TableStatus, OrderStatus, Table } from '../types';
@@ -116,6 +120,7 @@ const WaiterDashboard: React.FC = () => {
         ) : (
           <button onClick={() => window.location.hash = '#/abrir-mesa'} style={{ backgroundColor: theme.card }} className="px-4 py-2 rounded-2xl font-bold text-white border border-white/10">Abrir Outra</button>
         )}
+<<<<<<< HEAD
       </div>
       {/* Coluna de mesas */}
       <div className="flex-1 flex flex-col p-8 lg:p-10">
@@ -138,12 +143,66 @@ const WaiterDashboard: React.FC = () => {
                   {table.status === TableStatus.CALLING_WAITER && (
                     <div className="absolute -top-1 -right-1 bg-red-500 p-2.5 rounded-full shadow-lg animate-bounce">
                       <Bell className="w-4 h-4 text-white" />
+=======
+
+        <div className={`absolute bottom-0 left-0 right-0 h-[85vh] lg:h-full lg:relative bg-[#0d1f15] rounded-t-[4rem] lg:rounded-none border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col shadow-2xl overflow-hidden`}>
+          {selectedTable && tableDetail ? (
+            <>
+              <div className="p-8 lg:p-10 border-b border-white/5 bg-[#06120c]/50 flex flex-col gap-4 shrink-0">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-3xl font-serif text-[#d18a59] uppercase tracking-tighter leading-none">Mesa {tableDetail.number}</h3>
+                    <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest mt-2">Detalhamento de Consumo</p>
+                  </div>
+                  <button onClick={() => setSelectedTable(null)} className="p-3 bg-white/5 rounded-full text-gray-500 hover:text-white"><X className="w-6 h-6" /></button>
+                </div>
+                <div className="flex flex-col gap-2 lg:flex-row lg:gap-4 mt-2">
+                  <button 
+                    onClick={() => { setDeviceTableId(selectedTable); window.location.hash = '#/mesa'; }}
+                    className="w-full lg:w-auto py-3 px-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] bg-[#d18a59] text-black hover:opacity-90 shadow-lg">
+                    Ver Cardápio/Conta da Mesa
+                  </button>
+                  <button 
+                    onClick={handleFinalizeTable}
+                    style={{ backgroundColor: (allItemsDelivered || !hasPendingOrders) ? theme.primary : undefined }}
+                    className={`w-full lg:w-auto py-3 px-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 shadow-2xl ${
+                      allItemsDelivered || !hasPendingOrders 
+                        ? 'text-black hover:opacity-90' 
+                        : 'bg-white/5 text-gray-700 cursor-not-allowed border border-white/5'
+                    }`}>
+                    {allItemsDelivered || !hasPendingOrders ? (
+                      <>Liberar Mesa <ChevronRight className="w-5 h-5" /></>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                        <span>Itens Pendentes...</span>
+                      </div>
+                    )}
+                  </button>
+                  <div className="flex-1 flex items-end justify-end">
+                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1 mr-2">Subtotal</span>
+                    <span className="text-2xl font-serif text-[#d18a59] font-black leading-none">R$ {currentTableOrders.reduce((a, b) => a + b.total, 0).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 p-8 lg:p-10 overflow-y-auto space-y-6 no-scrollbar">
+                {tableDetail.status === TableStatus.CALLING_WAITER && (
+                  <div className="bg-red-500/20 border border-red-500/30 p-6 rounded-[2rem] flex items-center justify-between mb-4 animate-in zoom-in">
+                    <div className="flex items-center gap-4">
+                      <Bell className="w-6 h-6 text-red-500 animate-pulse" />
+                      <div>
+                        <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">Solicitando Garçom</p>
+                        <p className="text-xs text-white/60">Aguardando atendimento imediato</p>
+                      </div>
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
                     </div>
                   )}
                   {table.status === TableStatus.BILL_REQUESTED && (
                     <div className="absolute -top-1 -right-1 bg-blue-500 p-2.5 rounded-full shadow-lg">
                       <DollarSign className="w-4 h-4 text-white" />
                     </div>
+<<<<<<< HEAD
                   )}
                 </button>
                 {table.status === TableStatus.CALLING_WAITER && (
@@ -158,6 +217,22 @@ const WaiterDashboard: React.FC = () => {
             ))}
           </div>
         )}
+=======
+                  ))
+                )}
+              </div>
+              
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-8 opacity-10 h-full">
+              <div className="w-24 h-24 border-2 border-dashed border-gray-500 rounded-full flex items-center justify-center">
+                <Grid className="w-12 h-12 text-gray-500" />
+              </div>
+              <p className="text-xs font-black uppercase tracking-[0.4em] text-gray-500">Selecione uma mesa ativa</p>
+            </div>
+          )}
+        </div>
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
       </div>
       {/* Painel de Detalhes (Drawer Mobile / Coluna Desktop) */}
       {selectedTable && (
@@ -214,5 +289,8 @@ const WaiterDashboard: React.FC = () => {
 };
 
 export default WaiterDashboard;
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a

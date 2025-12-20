@@ -1,8 +1,13 @@
+<<<<<<< HEAD
 // ...código limpo...
 import React, { useState } from 'react';
+=======
+import React, { useState, useEffect } from 'react';
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
 import { useApp } from '../store';
 import { Plus, Trash2, Edit3, Beer, Users, Grid, DollarSign, Image as ImageIcon, Tag, X, Check, Star, TrendingUp, BarChart3, PieChart, ShoppingBag, MessageSquare, Clock, Settings, Palette, Lock, Save } from 'lucide-react';
-import { Product } from './types';
+import { Product } from '../types';
+
 
 const AdminDashboard: React.FC = () => {
   const { 
@@ -10,10 +15,18 @@ const AdminDashboard: React.FC = () => {
     waiters, addWaiter, deleteWaiter, 
     categories, addCategory, deleteCategory, updateCategory,
     tables, orders, feedbacks, establishment, setEstablishment,
+<<<<<<< HEAD
     addProduct, deleteProduct, saveEstablishment
+=======
+    addProduct, deleteProduct, fetchWithAuth
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
   } = useApp();
+  // Cálculo do NPS médio (averageRating)
+  const averageRating = feedbacks.length > 0 
+    ? feedbacks.reduce((acc, f) => acc + f.rating, 0) / feedbacks.length 
+    : 0;
   
-  const [activeTab, setActiveTab] = useState<'finance' | 'menu' | 'categories' | 'waiters' | 'feedbacks' | 'settings'>('finance');
+  const [activeTab, setActiveTab] = useState<'finance' | 'menu' | 'categories' | 'waiters' | 'feedbacks' | 'settings' | 'closed'>('finance');
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditingCategory, setIsEditingCategory] = useState<string | null>(null);
@@ -26,6 +39,8 @@ const AdminDashboard: React.FC = () => {
   const [waiterPassword, setWaiterPassword] = useState('');
   const [categoryName, setCategoryName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [closedTables, setClosedTables] = useState<any[]>([]);
+  const [isLoadingClosed, setIsLoadingClosed] = useState(false);
 
   const handleUpdateTheme = (key: string, value: string) => {
     setEstablishment({
@@ -40,9 +55,22 @@ const AdminDashboard: React.FC = () => {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
+<<<<<<< HEAD
       const ok = await saveEstablishment();
       if (ok) alert('Alterações salvas com sucesso!');
       else alert('Erro ao salvar alterações.');
+=======
+      const res = await fetchWithAuth('http://localhost:4000/api/establishment', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(establishment)
+      });
+      if (res.ok) {
+        alert('Alterações salvas com sucesso!');
+      } else {
+        alert('Erro ao salvar alterações.');
+      }
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
     } catch (e) {
       alert('Erro ao salvar alterações.');
     }
@@ -91,6 +119,7 @@ const AdminDashboard: React.FC = () => {
   const totalRevenue = orders.reduce((acc, o) => acc + o.total, 0);
   const averageTicket = orders.length > 0 ? totalRevenue / orders.length : 0;
   
+
   // Corrige para considerar produtos existentes e não só pedidos
   const productRanking = products.reduce((acc: any, p) => {
     const totalVendidos = orders.flatMap(o => o.items).filter(i => String(i.productId) === String(p.id)).reduce((sum, i) => sum + i.quantity, 0);
@@ -98,14 +127,11 @@ const AdminDashboard: React.FC = () => {
     return acc;
   }, {});
 
+  // Corrigir: topProducts não estava declarado
   const topProducts = Object.entries(productRanking)
-    .filter(([, qty]) => qty > 0)
-    .sort(([, a]: any, [, b]: any) => b - a)
+    .filter(([, qty]) => Number(qty) > 0)
+    .sort(([, a], [, b]) => Number(b) - Number(a))
     .slice(0, 5);
-
-  const averageRating = feedbacks.length > 0 
-    ? feedbacks.reduce((acc, f) => acc + f.rating, 0) / feedbacks.length 
-    : 0;
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
@@ -114,23 +140,30 @@ const AdminDashboard: React.FC = () => {
           <h2 className="text-4xl font-serif text-white uppercase">Painel de Gestão</h2>
           <p className="text-[#d18a59] text-[10px] uppercase font-bold tracking-[0.2em] mt-1">Sessão Administrativa • {establishment.name}</p>
         </div>
+<<<<<<< HEAD
         <div className="flex bg-[#0d1f15] p-1 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar max-w-full">
             {[
+=======
+        <div className="flex bg-[#0d1f15] p-1 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar max-w-full scrollbar-thin scrollbar-thumb-[#d18a59]/30">
+          {[
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
             { id: 'finance', icon: BarChart3, label: 'Financeiro' },
             { id: 'mesas', icon: Grid, label: 'Mesas' },
             { id: 'menu', icon: Beer, label: 'Cardápio' },
             { id: 'categories', icon: Tag, label: 'Categorias' },
             { id: 'waiters', icon: Users, label: 'Equipe' },
             { id: 'feedbacks', icon: MessageSquare, label: 'Avaliações' },
+            { id: 'closed', icon: Grid, label: 'Mesas Fechadas' },
             { id: 'settings', icon: Settings, label: 'Ajustes' }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-[#d18a59] text-black shadow-lg shadow-[#d18a59]/20' : 'text-gray-500 hover:text-white'}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap shrink-0 min-w-[120px] ${activeTab === tab.id ? 'bg-[#d18a59] text-black shadow-lg shadow-[#d18a59]/20' : 'text-gray-500 hover:text-white'}`}
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               <tab.icon className="w-4 h-4" />
-              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="inline">{tab.label}</span>
             </button>
           ))}
         </div>
@@ -180,6 +213,7 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
             <div className="bg-[#0d1f15] p-8 rounded-[2rem] border border-white/5 space-y-6">
+<<<<<<< HEAD
               <h4 className="text-xl font-serif flex items-center gap-2 text-white"><Grid className="w-5 h-5 text-[#d18a59]" /> Mesas do Dia</h4>
               <div className="space-y-3">
                 {(() => {
@@ -209,6 +243,21 @@ const AdminDashboard: React.FC = () => {
                       <div className="text-right">
                         <div className="text-sm text-gray-300">R$ {item.total.toFixed(2)}</div>
                       </div>
+=======
+              <h4 className="text-xl font-serif flex items-center gap-2 text-white"><PieChart className="w-5 h-5 text-[#d18a59]" /> Mix de Categorias</h4>
+              <div className="h-48 flex items-end gap-3 justify-center pt-4 overflow-x-auto no-scrollbar scrollbar-thin scrollbar-thumb-[#d18a59]/30">
+                {categories.map((cat) => {
+                  const catName = typeof cat === 'string' ? cat : cat?.name;
+                  const count = products.filter(p => p.category === catName).length;
+                  const totalProducts = products.length || 1;
+                  // Altura proporcional, mínimo 20px, máximo 100% do container
+                  const heightPx = Math.max(20, Math.round((count / totalProducts) * 160));
+                  return (
+                    <div key={catName} className="flex flex-col items-center gap-2 w-20 shrink-0 group">
+                      <div className="w-10 bg-[#d18a59]/20 border-t-2 border-x-2 border-[#d18a59]/40 rounded-t-lg transition-all group-hover:bg-[#d18a59]/40" style={{ height: `${heightPx}px` }}></div>
+                      <span className="text-[10px] uppercase font-black text-gray-500 mt-2 whitespace-nowrap block w-full text-center break-words">{catName}</span>
+                      <span className="text-[12px] text-[#d18a59] font-black">{count}</span>
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
                     </div>
                   ));
                 })()}
@@ -552,6 +601,37 @@ const AdminDashboard: React.FC = () => {
                {isSaving ? 'Salvando...' : 'Salvar Alterações'}
              </button>
            </div>
+        </div>
+      )}
+
+      {activeTab === 'closed' && (
+        <div className="space-y-6">
+          <h3 className="text-2xl font-serif text-white">Relatório de Mesas Fechadas (Hoje)</h3>
+          {isLoadingClosed ? (
+            <div className="py-10 text-center text-gray-500">Carregando...</div>
+          ) : closedTables.length === 0 ? (
+            <div className="py-10 text-center text-gray-500">Nenhuma mesa fechada hoje.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {closedTables.map((mesa: any) => (
+                <div key={mesa.tableNumber} className="bg-[#0d1f15] p-6 rounded-3xl border border-white/5 space-y-4">
+                  <h4 className="text-xl font-serif text-[#d18a59]">Mesa {mesa.tableNumber}</h4>
+                  <p className="text-gray-400 text-xs">Total: <span className="font-bold text-[#d18a59]">R$ {mesa.total.toFixed(2)}</span></p>
+                  <div className="space-y-2">
+                    {mesa.orders.map((order: any) => (
+                      <div key={order.id} className="bg-black/10 p-3 rounded-xl">
+                        <div className="flex justify-between text-xs">
+                          <span>Pedido #{order.id}</span>
+                          <span className="font-bold text-[#d18a59]">R$ {order.total.toFixed(2)}</span>
+                        </div>
+                        <div className="text-[10px] text-gray-500">{order.items.map((item: any) => `${item.quantity}x ${item.name}`).join(', ')}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

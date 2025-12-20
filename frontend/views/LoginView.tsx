@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 // ...código limpo...
+=======
+
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
 import React, { useState } from 'react';
 // Fix: Use namespace import for react-router-dom to resolve "no exported member" errors
 import * as ReactRouterDOM from 'react-router-dom';

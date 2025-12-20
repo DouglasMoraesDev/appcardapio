@@ -13,6 +13,7 @@ const TrocaMesaModal: React.FC<{ onLiberar: () => void; onClose: () => void }> =
     setErro('');
     setLoading(true);
     try {
+<<<<<<< HEAD
       const candidates = (waiters || []).map(w => (w.username ? String((w as any).username) : '')).filter(Boolean);
       // fallback common usernames
       const fallbacks = ['douglas', 'garcom', 'waiter'];
@@ -38,6 +39,15 @@ const TrocaMesaModal: React.FC<{ onLiberar: () => void; onClose: () => void }> =
         } catch {}
       }
       if (!validated) {
+=======
+      // Valida senha do garçom no backend
+      const res = await fetch('http://localhost:4000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'douglas', password: senha, role: 'waiter' })
+      });
+      if (!res.ok) {
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
         setErro('Senha incorreta!');
         setLoading(false);
         return;

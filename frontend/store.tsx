@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 // ...código limpo...
+=======
+
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Product, Table, Order, TableStatus, OrderStatus, Establishment, User, OrderItem, Feedback, ThemeConfig } from './types';
 
@@ -60,6 +64,7 @@ const INITIAL_PRODUCTS: Product[] = [];
 
 const INITIAL_CATEGORIES: string[] = [];
 
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [establishment, setEstablishment] = useState<Establishment>({ name: '', logo: '', address: '', serviceCharge: 10, theme: INITIAL_THEME } as any);
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
@@ -72,30 +77,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [deviceTableId, setDeviceTableId] = useState<string | null>(null);
 
+  // Defina fetchWithAuth ANTES de qualquer uso
+
   // Função para buscar pedidos de uma mesa específica (sem sobrescrever o global)
   const fetchOrdersByTable = useCallback(async (tableId: string) => {
     try {
-      const res = await fetch(`${API_BASE}/orders?tableId=${tableId}`);
+      const res = await fetchWithAuth(`${API_BASE}/orders?tableId=${tableId}`);
       if (res.ok) {
         const pedidos = await res.json();
         return pedidos.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) }));
       }
     } catch (e) {}
     return [];
-  }, []);
+  }, [accessToken]);
 
   // Load initial data from backend e refresh access token (refresh cookie)
   useEffect(() => {
     (async () => {
       try {
         let localAccess: string | null = null;
+        let userDecoded: any = null;
         const r = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
         let d: any = null;
         if (r.ok) {
           d = await r.json();
           localAccess = d.accessToken;
+          userDecoded = d.user;
           setAccessToken(localAccess);
           setCurrentUser({ id: String(d.user.id), name: d.user.name, role: d.user.role } as any);
+        } else {
+          // Se não autenticado, limpa usuário e token
+          setAccessToken(null);
+          setCurrentUser(null);
+          return; // Sai do efeito, não tenta buscar dados protegidos
         }
 
         const headers: any = { 'Content-Type': 'application/json' };
@@ -109,8 +123,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (refreshRes.ok) {
               const d = await refreshRes.json();
               localAccess = d.accessToken;
+              userDecoded = d.user;
               setAccessToken(localAccess);
               headers['Authorization'] = `Bearer ${localAccess}`;
+<<<<<<< HEAD
+=======
+              res = await fetch(url, { headers });
+            } else {
+              // Se não conseguir renovar, limpa usuário e token
+              setAccessToken(null);
+              setCurrentUser(null);
+              return null;
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
             }
             res = await fetch(url, { headers });
           }
@@ -125,21 +149,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           fetchWithRetry(`${API_BASE}/tables`).catch(() => []),
           fetchWithRetry(`${API_BASE}/feedbacks`).catch(() => [])
         ]);
+<<<<<<< HEAD
         if (estRes) setEstablishment(estRes);
         if (Array.isArray(prodRes)) setProducts(prodRes.map((p: any) => ({ ...p, id: String(p.id), category: (typeof p.category === 'string' ? p.category : (p.category?.name || 'Geral')) } as any)));
+=======
+        if (estRes) {
+          // Garante que sempre há um theme completo
+          setEstablishment({
+            ...estRes,
+            theme: {
+              ...INITIAL_THEME,
+              ...(estRes.theme || {})
+            }
+          });
+        }
+        if (Array.isArray(prodRes)) setProducts(prodRes.map((p: any) => ({ ...p, id: String(p.id) })));
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
         if (Array.isArray(catRes)) setCategories(catRes.map((c: any) => c.name));
         if (Array.isArray(tableRes)) setTables(tableRes.map((t: any) => ({ ...t, id: String(t.id) })));
         if (Array.isArray(fbRes)) setFeedbacks(fbRes.map((f: any) => ({ ...f, id: String(f.id) })));
 
         // Só busca dados protegidos se autenticado
-        if (localAccess && d && d.user && d.user.role === 'admin') {
+        if (localAccess && userDecoded && userDecoded.role === 'admin') {
           const [orderRes, userRes] = await Promise.all([
             fetchWithRetry(`${API_BASE}/orders`).catch(() => []),
             fetchWithRetry(`${API_BASE}/users`).catch(() => []),
           ]);
           if (Array.isArray(orderRes)) setOrders(orderRes.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })));
           if (Array.isArray(userRes)) setWaiters(userRes.filter((u:any)=>u.role==='waiter').map((u:any)=>({ ...u, id: String(u.id) })));
-        } else if (localAccess && d && d.user && d.user.role === 'customer') {
+        } else if (localAccess && userDecoded && userDecoded.role === 'customer') {
           // Para cliente, busca apenas pedidos da mesa
           const tableId = localStorage.getItem('deviceTableId');
           if (tableId) {
@@ -148,7 +186,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
       } catch (err) {
-        // failed to load remote API during init — fallback silently to local state
+        // Falha ao carregar API remota durante init — limpa usuário e token
+        setAccessToken(null);
+        setCurrentUser(null);
       }
     })();
   }, []);
@@ -210,10 +250,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [accessToken, currentUser]);
 
   useEffect(() => {
-    // Attempt to persist changes to backend; fallback to localStorage when offline
+    // Persistência automática só para admin autenticado
     (async () => {
       try {
-        await fetch(`${API_BASE}/establishment`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(establishment) });
+        if (currentUser && currentUser.role === 'admin' && accessToken) {
+          await fetchWithAuth(`${API_BASE}/establishment`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(establishment)
+          });
+        } else {
+          // fallback local
+          localStorage.setItem('establishment', JSON.stringify(establishment));
+        }
       } catch (e) {
         localStorage.setItem('establishment', JSON.stringify(establishment));
       }
@@ -231,7 +280,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (currentUser) localStorage.setItem('currentUser', JSON.stringify(currentUser)); else localStorage.removeItem('currentUser');
       if (deviceTableId) localStorage.setItem('deviceTableId', deviceTableId); else localStorage.removeItem('deviceTableId');
     })();
+<<<<<<< HEAD
   }, [establishment, products, categories, tables, orders, waiters, feedbacks, currentUser, deviceTableId]);
+=======
+  }, [establishment, products, categories, tables, orders, waiters, deviceTableId, feedbacks, currentUser, accessToken]);
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
 
   const fetchWithAuth = async (input: RequestInfo, init?: RequestInit) => {
     let access = accessToken;
@@ -525,8 +578,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteCategory,
       updateCategory,
       openTable,
+<<<<<<< HEAD
       fetchOrdersByTable
       , saveEstablishment
+=======
+      fetchOrdersByTable,
+      fetchWithAuth
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
     }}>
       {children}
     </AppContext.Provider>

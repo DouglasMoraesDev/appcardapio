@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+=======
+
+import React, { useState, useEffect } from 'react';
+>>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
 import { useApp } from '../store';
 import { TableStatus, OrderItem, Table, Order, Product } from '../types';
 import { ShoppingCart, Bell, Receipt, Plus, Minus, X, Check, Search, ChevronLeft, Lock, Star, Sparkles, MessageSquare, Timer, Send, UtensilsCrossed } from 'lucide-react';
