@@ -1,9 +1,4 @@
-<<<<<<< HEAD
-=======
-
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
 import React, { useState } from 'react';
-// Fix: Use namespace import for react-router-dom to resolve "no exported member" errors
 import * as ReactRouterDOM from 'react-router-dom';
 import { useApp } from '../store';
 import { ArrowLeft, Store, MapPin, Image as ImageIcon, CreditCard, Hash, Percent, User as UserIcon, Lock } from 'lucide-react';
@@ -39,30 +34,48 @@ const RegistrationView: React.FC = () => {
       role: 'admin' as const
     };
 
-    setEstablishment({
-      name: form.name,
-      address: form.address,
-      cep: form.cep,
-      cpfCnpj: form.cpfCnpj,
-      logo: form.logo || "https://cervejacamposdojordao.com.br/wp-content/uploads/2021/08/logo-playpub.png",
-      serviceCharge: form.serviceCharge,
-      adminUser: newAdmin,
-      theme: {
-        background: "#06120c",
-        card: "#0d1f15",
-        text: "#fefce8",
-        primary: "#d18a59",
-        accent: "#c17a49"
+    (async () => {
+      try {
+        const API = (import.meta.env.VITE_API_URL as string) || 'http://localhost:4000';
+        const res = await fetch(`${API}/api/establishment`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name,
+            address: form.address,
+            cep: form.cep,
+            cpfCnpj: form.cpfCnpj,
+            logo: form.logo || 'https://cervejacamposdojordao.com.br/wp-content/uploads/2021/08/logo-playpub.png',
+            serviceCharge: form.serviceCharge,
+            adminUser: { name: 'Administrador Master', username: form.adminUsername, password: form.adminPassword },
+            theme: {
+              background: '#06120c',
+              card: '#0d1f15',
+              text: '#fefce8',
+              primary: '#d18a59',
+              accent: '#c17a49'
+            }
+          })
+        });
+        if (!res.ok) {
+          const txt = await res.text();
+          alert('Erro ao criar estabelecimento: ' + txt);
+          return;
+        }
+        const created = await res.json();
+        setEstablishment({ ...created, theme: { background: '#06120c', card: '#0d1f15', text: '#fefce8', primary: '#d18a59', accent: '#c17a49', ...(created.theme || {}) } });
+        alert('Estabelecimento e Admin cadastrados com sucesso!');
+        navigate('/');
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao criar estabelecimento. Confira o servidor.');
       }
-    });
-
-    alert("Estabelecimento e Admin cadastrados com sucesso!");
-    navigate('/');
+    })();
   };
 
   return (
-    <div className="min-h-screen bg-[#06120c] p-6 flex items-center justify-center py-12">
-      <div className="max-w-2xl w-full space-y-8">
+    <div className="min-h-screen bg-[#06120c] p-4 sm:p-6 flex items-center justify-center py-10">
+      <div className="max-w-3xl w-full space-y-8 px-4 sm:px-6 lg:px-0">
         <button onClick={() => navigate('/')} className="text-gray-400 hover:text-[#d18a59] flex items-center gap-2 mb-4 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </button>
@@ -72,11 +85,11 @@ const RegistrationView: React.FC = () => {
           <p className="mt-2 text-gray-100 opacity-60 uppercase text-[10px] font-bold tracking-[0.2em]">Configure sua plataforma de gestão</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-10 bg-[#0d1f15] p-10 rounded-[2.5rem] border border-white/5 shadow-2xl">
+        <form onSubmit={handleSubmit} className="mt-8 space-y-10 bg-[#0d1f15] p-6 sm:p-10 rounded-[2.5rem] border border-white/5 shadow-2xl">
           {/* Dados do Estabelecimento */}
           <div className="space-y-6">
             <h3 className="text-white font-serif text-xl border-b border-white/10 pb-2">1. Dados do Estabelecimento</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
                 <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 ml-1">Nome do Restaurante</label>
                 <div className="relative">
@@ -200,7 +213,7 @@ const RegistrationView: React.FC = () => {
             </div>
           </div>
 
-          <button type="submit" className="w-full bg-[#d18a59] text-black font-black py-6 rounded-2xl hover:bg-[#c17a49] transition-all uppercase tracking-[0.3em] text-xs shadow-2xl">
+          <button type="submit" className="w-full bg-[#d18a59] text-black font-black py-4 sm:py-6 rounded-2xl hover:bg-[#c17a49] transition-all uppercase tracking-[0.3em] text-xs shadow-2xl">
             Concluir e Abrir Estabelecimento
           </button>
         </form>

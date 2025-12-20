@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-// ...código limpo...
-=======
-
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Product, Table, Order, TableStatus, OrderStatus, Establishment, User, OrderItem, Feedback, ThemeConfig } from './types';
 
@@ -76,6 +71,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [deviceTableId, setDeviceTableId] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Defina fetchWithAuth ANTES de qualquer uso
 
@@ -109,7 +105,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // Se não autenticado, limpa usuário e token
           setAccessToken(null);
           setCurrentUser(null);
-          return; // Sai do efeito, não tenta buscar dados protegidos
+          // NÃO retorna: continuar para carregar dados públicos (establishment, produtos, categorias etc.)
+          localAccess = null;
+          userDecoded = null;
         }
 
         const headers: any = { 'Content-Type': 'application/json' };
@@ -118,25 +116,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const fetchWithRetry = async (url: string) => {
           let res = await fetch(url, { headers });
           if (res.status === 401 || res.status === 403) {
-            // tenta renovar token
+            // tenta renovar token usando cookie de refresh
             const refreshRes = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
             if (refreshRes.ok) {
-              const d = await refreshRes.json();
-              localAccess = d.accessToken;
-              userDecoded = d.user;
+              const d2 = await refreshRes.json();
+              localAccess = d2.accessToken;
+              userDecoded = d2.user;
               setAccessToken(localAccess);
               headers['Authorization'] = `Bearer ${localAccess}`;
-<<<<<<< HEAD
-=======
               res = await fetch(url, { headers });
             } else {
-              // Se não conseguir renovar, limpa usuário e token
+              // Se não conseguir renovar, limpa usuário e token e encerra
               setAccessToken(null);
               setCurrentUser(null);
               return null;
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
             }
-            res = await fetch(url, { headers });
           }
           return res.ok ? await res.json() : null;
         };
@@ -149,22 +143,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           fetchWithRetry(`${API_BASE}/tables`).catch(() => []),
           fetchWithRetry(`${API_BASE}/feedbacks`).catch(() => [])
         ]);
-<<<<<<< HEAD
-        if (estRes) setEstablishment(estRes);
-        if (Array.isArray(prodRes)) setProducts(prodRes.map((p: any) => ({ ...p, id: String(p.id), category: (typeof p.category === 'string' ? p.category : (p.category?.name || 'Geral')) } as any)));
-=======
         if (estRes) {
-          // Garante que sempre há um theme completo
-          setEstablishment({
-            ...estRes,
-            theme: {
-              ...INITIAL_THEME,
-              ...(estRes.theme || {})
-            }
-          });
+          setEstablishment({ ...estRes, theme: { ...INITIAL_THEME, ...(estRes.theme || {}) } });
         }
-        if (Array.isArray(prodRes)) setProducts(prodRes.map((p: any) => ({ ...p, id: String(p.id) })));
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
+        if (Array.isArray(prodRes)) setProducts(prodRes.map((p: any) => ({ ...p, id: String(p.id), category: (typeof p.category === 'string' ? p.category : (p.category?.name || 'Geral')) } as any)));
         if (Array.isArray(catRes)) setCategories(catRes.map((c: any) => c.name));
         if (Array.isArray(tableRes)) setTables(tableRes.map((t: any) => ({ ...t, id: String(t.id) })));
         if (Array.isArray(fbRes)) setFeedbacks(fbRes.map((f: any) => ({ ...f, id: String(f.id) })));
@@ -178,10 +160,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (Array.isArray(orderRes)) setOrders(orderRes.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })));
           if (Array.isArray(userRes)) setWaiters(userRes.filter((u:any)=>u.role==='waiter').map((u:any)=>({ ...u, id: String(u.id) })));
         } else if (localAccess && userDecoded && userDecoded.role === 'customer') {
-          // Para cliente, busca apenas pedidos da mesa
-          const tableId = localStorage.getItem('deviceTableId');
-          if (tableId) {
-            const orderRes = await fetchWithRetry(`${API_BASE}/orders?tableId=${tableId}`).catch(() => []);
+          // Para cliente, busca apenas pedidos da mesa (usa deviceTableId em memória)
+          if (deviceTableId) {
+            const orderRes = await fetchWithRetry(`${API_BASE}/orders?tableId=${deviceTableId}`).catch(() => []);
             if (Array.isArray(orderRes)) setOrders(orderRes.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })));
           }
         }
@@ -189,6 +170,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Falha ao carregar API remota durante init — limpa usuário e token
         setAccessToken(null);
         setCurrentUser(null);
+      } finally {
+        setIsInitialized(true);
       }
     })();
   }, []);
@@ -205,7 +188,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ]);
           if (Array.isArray(orderRes)) setOrders(orderRes.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })));
           if (Array.isArray(userRes)) setWaiters(userRes.filter((u:any)=>u.role==='waiter').map((u:any)=>({ ...u, id: String(u.id) })));
-        } else if (currentUser.role === 'waiter') {
+          } else if (currentUser.role === 'waiter') {
           // waiter may want to see orders
           const orderRes = await fetchWithAuth(`${API_BASE}/orders`).catch(() => []);
           if (Array.isArray(orderRes)) setOrders(orderRes.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })));
@@ -233,10 +216,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setWaiters(Array.isArray(usersData) ? usersData.filter((u:any)=>u.role==='waiter').map((u:any)=>({ ...u, id: String(u.id) })) : []);
           }
         } else if (currentUser.role === 'waiter') {
-          // para garçom, atualiza pedidos se necessário
-          const tableId = localStorage.getItem('deviceTableId');
-          if (tableId) {
-            const ordRes = await fetchWithAuth(`${API_BASE}/orders?tableId=${tableId}`);
+          // para garçom, atualiza pedidos se necessário (usa deviceTableId em memória)
+          if (deviceTableId) {
+            const ordRes = await fetchWithAuth(`${API_BASE}/orders?tableId=${deviceTableId}`);
             if (ordRes && ordRes.ok) {
               const ordData = await ordRes.json();
               setOrders(Array.isArray(ordData) ? ordData.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })) : []);
@@ -251,6 +233,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     // Persistência automática só para admin autenticado
+    // don't persist until initial load completed to avoid overwriting server values
+    if (!isInitialized) return;
     (async () => {
       try {
         if (currentUser && currentUser.role === 'admin' && accessToken) {
@@ -260,65 +244,123 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             body: JSON.stringify(establishment)
           });
         } else {
-          // fallback local
-          localStorage.setItem('establishment', JSON.stringify(establishment));
+          // For non-admin users we do not persist to localStorage anymore.
+          // Do nothing silently to avoid noisy console messages on reload.
         }
       } catch (e) {
-        localStorage.setItem('establishment', JSON.stringify(establishment));
+        console.error('Failed to persist establishment to backend', e);
       }
 
       try {
-        // Sync products (naive approach: delete/create not handled) — keep local for now
-        localStorage.setItem('products', JSON.stringify(products));
+        // Products, categories, tables, orders, waiters and feedbacks must be saved to backend explicitly.
+        // We no longer persist them to localStorage here to avoid silent local-only state.
       } catch (e) {}
-
-      try { localStorage.setItem('categories', JSON.stringify(categories)); } catch(e){}
-      try { localStorage.setItem('tables', JSON.stringify(tables)); } catch(e){}
-      try { localStorage.setItem('orders', JSON.stringify(orders)); } catch(e){}
-      try { localStorage.setItem('waiters', JSON.stringify(waiters)); } catch(e){}
-      try { localStorage.setItem('feedbacks', JSON.stringify(feedbacks)); } catch(e){}
-      if (currentUser) localStorage.setItem('currentUser', JSON.stringify(currentUser)); else localStorage.removeItem('currentUser');
-      if (deviceTableId) localStorage.setItem('deviceTableId', deviceTableId); else localStorage.removeItem('deviceTableId');
     })();
-<<<<<<< HEAD
-  }, [establishment, products, categories, tables, orders, waiters, feedbacks, currentUser, deviceTableId]);
-=======
-  }, [establishment, products, categories, tables, orders, waiters, deviceTableId, feedbacks, currentUser, accessToken]);
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
+  }, [establishment, products, categories, tables, orders, waiters, feedbacks, currentUser, deviceTableId, accessToken]);
 
   const fetchWithAuth = async (input: RequestInfo, init?: RequestInit) => {
+    // helper: verifica se um JWT expirou (com margem)
+    const isTokenExpired = (token?: string | null) => {
+      if (!token) return true;
+      try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return true;
+        const payload = JSON.parse(atob(parts[1]));
+        const exp = typeof payload.exp === 'number' ? payload.exp : 0;
+        // considera expirado com margem de 8s
+        return Date.now() / 1000 > (exp - 8);
+      } catch (e) {
+        return true;
+      }
+    };
+
     let access = accessToken;
-    const headers = { 'Content-Type': 'application/json', ...(init?.headers as any || {}) } as any;
-    if (access) headers['Authorization'] = `Bearer ${access}`;
-    let res = await fetch(input, { credentials: 'include', ...init, headers });
-    if (res.status === 401 || res.status === 403) {
-      // tenta renovar token
-      const refreshRes = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
-      if (refreshRes.ok) {
-        const d = await refreshRes.json();
-        access = d.accessToken;
-        setAccessToken(access);
-        headers['Authorization'] = `Bearer ${access}`;
-        res = await fetch(input, { credentials: 'include', ...init, headers });
-      } else {
-        // Se não conseguir renovar, limpa estado e redireciona para login de garçom
-        setAccessToken(null);
-        setCurrentUser(null);
-        try { localStorage.removeItem('currentUser'); } catch {}
-        // envia usuário para a tela de login waiter para reautenticação
-        window.location.hash = '#/login/waiter';
-        throw new Error('Sessão expirada. Faça login novamente.');
+    // If we don't have an access token in memory, try a refresh first (avoids an initial 401)
+    if (!access) {
+      try {
+        const refreshRes = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
+        if (refreshRes.ok) {
+          const d = await refreshRes.json();
+          access = d.accessToken;
+          setAccessToken(access);
+        }
+      } catch (e) {
+        // ignore refresh failure here; we'll handle 401 after the request
       }
     }
+    const headers = { 'Content-Type': 'application/json', ...(init?.headers as any || {}) } as any;
+
+    // Se o token existir mas estiver expirado, tenta renovar antes da requisição
+    if (access && isTokenExpired(access)) {
+      try {
+        const refreshRes = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
+        if (refreshRes.ok) {
+          const d = await refreshRes.json();
+          access = d.accessToken;
+          setAccessToken(access);
+        } else {
+          // Não conseguiu renovar; limpa e força login
+          setAccessToken(null);
+          setCurrentUser(null);
+          window.location.hash = '#/login/waiter';
+          throw new Error('Sessão expirada. Faça login novamente.');
+        }
+      } catch (e) {
+        setAccessToken(null);
+        setCurrentUser(null);
+        window.location.hash = '#/login/waiter';
+        throw e;
+      }
+    }
+
+    if (access) headers['Authorization'] = `Bearer ${access}`;
+    let res = await fetch(input, { credentials: 'include', ...init, headers });
+
+    if (res.status === 401 || res.status === 403) {
+      // tentativa fallback: se a primeira requisição falhar, tenta renovar e repetir
+      try {
+        const refreshRes = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
+        if (refreshRes.ok) {
+          const d = await refreshRes.json();
+          access = d.accessToken;
+          setAccessToken(access);
+          headers['Authorization'] = `Bearer ${access}`;
+          res = await fetch(input, { credentials: 'include', ...init, headers });
+        } else {
+          setAccessToken(null);
+          setCurrentUser(null);
+          window.location.hash = '#/login/waiter';
+          throw new Error('Sessão expirada. Faça login novamente.');
+        }
+      } catch (e) {
+        setAccessToken(null);
+        setCurrentUser(null);
+        window.location.hash = '#/login/waiter';
+        throw e;
+      }
+    }
+
     return res;
   };
 
-  const updateTableStatus = useCallback(async (tableId: string, status: TableStatus) => {
+  const updateTableStatus = useCallback(async (tableId: string, status: TableStatus, servicePaid?: boolean) => {
     try {
-      await fetchWithAuth(`${API_BASE}/tables/${tableId}`, { method: 'PUT', body: JSON.stringify({ status }) });
+      const body: any = { status };
+      if (servicePaid !== undefined) body.servicePaid = !!servicePaid;
+      await fetchWithAuth(`${API_BASE}/tables/${tableId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       setTables(prev => prev.map(t => t.id === tableId ? { ...t, status } : t));
     } catch (e) {
-      setTables(prev => prev.map(t => t.id === tableId ? { ...t, status } : t));
+      console.error('Failed to update table status', e);
+      alert('Erro ao atualizar status da mesa. Verifique a conexão com o servidor.');
+      return;
+    }
+    // Quando mesa fica disponível, removemos pedidos locais associados a ela
+    if (status === TableStatus.AVAILABLE) {
+      setOrders(prev => prev.filter(o => String(o.tableId) !== String(tableId)));
+    }
+    // Quando mesa é ocupada, limpe pedidos antigos locais para evitar mostrar conta de cliente anterior
+    if (status === TableStatus.OCCUPIED) {
+      setOrders(prev => prev.filter(o => String(o.tableId) !== String(tableId)));
     }
   }, []);
 
@@ -340,11 +382,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTables(prev => [...prev, newTable]);
       return newTable.id;
     } catch (e) {
-      // fallback local
-      const newId = `table-${Date.now()}`;
-      const newTable: Table = { id: newId, number, status: TableStatus.OCCUPIED };
-      setTables(prev => [...prev, newTable]);
-      return newId;
+      console.error('Failed to open/create table', e);
+      alert('Erro ao abrir mesa. Verifique a conexão com o servidor.');
+      throw e;
     }
   };
 
@@ -370,25 +410,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setOrders(pedidos.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })));
       }
     } catch (e) {
-      const newOrder: Order = {
-        id: Math.random().toString(36).substr(2, 9),
-        tableId,
-        items: normalizedItems,
-        status: OrderStatus.PENDING,
-        timestamp: Date.now(),
-        total: subtotal
-      };
-      setOrders(prev => [...prev, newOrder]);
-      updateTableStatus(tableId, TableStatus.OCCUPIED);
+      console.error('Failed to add order', e);
+      alert('Erro ao enviar pedido. Verifique a conexão com o servidor.');
+      return;
     }
   }, [updateTableStatus]);
 
-  const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => {
+  const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, servicePaid?: boolean) => {
     try {
-      await fetchWithAuth(`${API_BASE}/orders/${orderId}/status`, { method: 'PUT', body: JSON.stringify({ status }) });
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+      const res = await fetchWithAuth(`${API_BASE}/orders/${orderId}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, servicePaid }) });
+      if (res && res.ok) {
+        const updated = await res.json();
+        setOrders(prev => prev.map(o => o.id === orderId ? ({ ...o, status: updated.status, servicePaid: updated.servicePaid, serviceValue: String(updated.serviceValue || 0) } as any) : o));
+      }
     } catch (e) {
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+      console.error('Failed to update order status', e);
+      alert('Erro ao atualizar status do pedido. Verifique a conexão com o servidor.');
+      return;
     }
   }, []);
 
@@ -406,17 +444,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { ...order, items: newItems, status: newOrderStatus };
       }));
     } catch (e) {
-      // local fallback
-      setOrders(prev => prev.map(order => {
-        if (order.id !== orderId) return order;
-        const newItems = order.items.map(item => item.id === itemId ? { ...item, status } : item);
-        const allDelivered = newItems.every(i => i.status === 'DELIVERED');
-        const anyDelivered = newItems.some(i => i.status === 'DELIVERED');
-        let newOrderStatus = OrderStatus.PENDING;
-        if (allDelivered) newOrderStatus = OrderStatus.DELIVERED;
-        else if (anyDelivered) newOrderStatus = OrderStatus.PARTIAL;
-        return { ...order, items: newItems, status: newOrderStatus };
-      }));
+      console.error('Failed to update order item status', e);
+      alert('Erro ao atualizar item do pedido. Verifique a conexão com o servidor.');
+      return;
     }
   }, []);
 
@@ -426,8 +456,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const created = await res.json();
       setFeedbacks(prev => [{ ...created, id: String(created.id) }, ...prev]);
     } catch (e) {
-      const newFeedback: Feedback = { ...f, id: Math.random().toString(36).substr(2, 9), timestamp: Date.now() };
-      setFeedbacks(prev => [newFeedback, ...prev]);
+      console.error('Failed to add feedback', e);
+      alert('Erro ao enviar avaliação. Verifique a conexão com o servidor.');
+      return;
     }
   };
 
@@ -438,7 +469,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const normalized = { ...created, id: String(created.id), category: (typeof created.category === 'string' ? created.category : (created.category?.name || 'Geral')) } as any;
       setProducts(prev => [...prev, normalized]);
     } catch (e) {
-      setProducts(prev => [...prev, p]);
+      console.error('Failed to add product', e);
+      alert('Erro ao adicionar produto. Verifique a conexão com o servidor.');
+      return;
     }
   };
 
@@ -450,7 +483,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setProducts(prev => prev.map(p => p.id === id ? { ...p, ...normalized } : p));
       return true;
     } catch (e) {
-      setProducts(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+      console.error('Failed to update product', e);
+      alert('Erro ao atualizar produto. Verifique a conexão com o servidor.');
       return false;
     }
   };
@@ -460,7 +494,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await fetchWithAuth(`${API_BASE}/products/${id}`, { method: 'DELETE' });
       setProducts(prev => prev.filter(p => p.id !== id));
     } catch (e) {
-      setProducts(prev => prev.filter(p => p.id !== id));
+      console.error('Failed to delete product', e);
+      alert('Erro ao excluir produto. Verifique a conexão com o servidor.');
+      return;
     }
   };
   
@@ -472,19 +508,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const updated = await res.json();
       setProducts(prev => prev.map(p => p.id === id ? { ...p, isHighlight: updated.isHighlight } : p));
     } catch (e) {
-      setProducts(prev => prev.map(p => p.id === id ? { ...p, isHighlight: !p.isHighlight } : p));
+      console.error('Failed to toggle product highlight', e);
+      alert('Erro ao alterar destaque do produto. Verifique a conexão com o servidor.');
+      return;
     }
   };
 
   const addWaiter = async (name: string, password: string) => {
     try {
       const username = name.replace(/\s+/g, '').toLowerCase();
-      const res = await fetchWithAuth(`${API_BASE}/users`, { method: 'POST', body: JSON.stringify({ name, username, password, role: 'waiter' }) });
+      const res = await fetchWithAuth(`${API_BASE}/users`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, username, password, role: 'waiter' }) });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Erro ao adicionar garçom' }));
+        alert(err.error || 'Erro ao adicionar garçom. ' + (err.details || ''));
+        return;
+      }
       const created = await res.json();
       setWaiters(prev => [...prev, { ...created, id: String(created.id) }]);
     } catch (e) {
-      const newWaiter: User = { id: Math.random().toString(36).substr(2, 9), name, role: 'waiter' } as any;
-      setWaiters(prev => [...prev, newWaiter]);
+      console.error('Failed to add waiter', e);
+      alert('Erro ao adicionar garçom. Verifique a conexão com o servidor.');
+      return;
     }
   };
 
@@ -493,7 +537,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await fetchWithAuth(`${API_BASE}/users/${id}`, { method: 'DELETE' });
       setWaiters(prev => prev.filter(w => w.id !== id));
     } catch (e) {
-      setWaiters(prev => prev.filter(w => w.id !== id));
+      console.error('Failed to delete waiter', e);
+      alert('Erro ao remover garçom. Verifique a conexão com o servidor.');
+      return;
     }
   };
 
@@ -503,19 +549,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const created = await res.json();
       setCategories(prev => [...prev, created.name]);
     } catch (e) {
-      if (!categories.includes(name)) setCategories(prev => [...prev, name]);
+      console.error('Failed to add category', e);
+      alert('Erro ao adicionar categoria. Verifique a conexão com o servidor.');
+      return;
     }
   };
 
   const saveEstablishment = async () => {
     try {
-      const res = await fetch(`${API_BASE}/establishment`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(establishment) });
-      if (res.ok) {
-        const updated = await res.json();
-        setEstablishment(updated);
+      // use authenticated request when possible
+      const res = await (accessToken ? fetchWithAuth(`${API_BASE}/establishment`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(establishment) }) : fetch(`${API_BASE}/establishment`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(establishment) }));
+      if (res && (res as Response).ok) {
+        const updated = await (res as Response).json();
+        setEstablishment({ ...updated, theme: { ...INITIAL_THEME, ...(updated.theme || {}) } });
+        // do not persist to localStorage; backend holds the canonical state
         return true;
       }
-    } catch (e) {}
+    } catch (e) {
+      // ignore
+    }
     return false;
   };
 
@@ -527,7 +579,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (found) await fetchWithAuth(`${API_BASE}/categories/${found.id}`, { method: 'DELETE' });
       setCategories(prev => prev.filter(c => c !== name));
     } catch (e) {
-      setCategories(prev => prev.filter(c => c !== name));
+      console.error('Failed to delete category', e);
+      alert('Erro ao excluir categoria. Verifique a conexão com o servidor.');
+      return;
     }
   };
 
@@ -540,8 +594,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCategories(prev => prev.map(c => c === oldName ? newName : c));
       setProducts(prev => prev.map(p => p.category === oldName ? { ...p, category: newName } : p));
     } catch (e) {
-      setCategories(prev => prev.map(c => c === oldName ? newName : c));
-      setProducts(prev => prev.map(p => p.category === oldName ? { ...p, category: newName } : p));
+      console.error('Failed to update category', e);
+      alert('Erro ao atualizar categoria. Verifique a conexão com o servidor.');
+      return;
     }
   };
 
@@ -578,13 +633,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteCategory,
       updateCategory,
       openTable,
-<<<<<<< HEAD
-      fetchOrdersByTable
-      , saveEstablishment
-=======
       fetchOrdersByTable,
+      saveEstablishment,
       fetchWithAuth
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
     }}>
       {children}
     </AppContext.Provider>

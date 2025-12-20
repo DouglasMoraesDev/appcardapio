@@ -53,13 +53,9 @@ router.post('/login', async (req, res) => {
   const refreshToken = makeRefreshToken();
   const expiresAt = new Date(Date.now() + REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000);
   await prisma.refreshToken.create({ data: { token: refreshToken, userId: user.id, expiresAt } });
-<<<<<<< HEAD
-  // clear any previous cookie set on different paths to avoid duplicates
+  // clear any previous cookie set on different paths to evitar duplicatas
   res.clearCookie('refreshToken', { path: '/' });
   res.clearCookie('refreshToken', { path: '/api/auth' });
-  // set cookie on root path so it's available across the frontend
-=======
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
   res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: false, sameSite: 'lax', path: '/', expires: expiresAt });
 
   res.json({ accessToken, user: { id: user.id, name: user.name, role: user.role } });
@@ -85,11 +81,8 @@ router.post('/refresh', async (req, res) => {
   await prisma.refreshToken.create({ data: { token: newRefresh, userId: user.id, expiresAt: newExpires } });
   // use deleteMany to avoid throwing if token was already removed concurrently
   await prisma.refreshToken.deleteMany({ where: { id: db.id } });
-<<<<<<< HEAD
   res.clearCookie('refreshToken', { path: '/' });
   res.clearCookie('refreshToken', { path: '/api/auth' });
-=======
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
   res.cookie('refreshToken', newRefresh, { httpOnly: true, secure: false, sameSite: 'lax', path: '/', expires: newExpires });
 
   res.json({ accessToken, user: { id: user.id, name: user.name, role: user.role } });
@@ -100,13 +93,9 @@ router.post('/logout', async (req, res) => {
   if (token) {
     await prisma.refreshToken.deleteMany({ where: { token } }).catch(()=>{});
   }
-<<<<<<< HEAD
   // clear both possible cookie paths
   res.clearCookie('refreshToken', { path: '/' });
   res.clearCookie('refreshToken', { path: '/api/auth' });
-=======
-  res.clearCookie('refreshToken', { path: '/' });
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
   res.json({ ok: true });
 });
 

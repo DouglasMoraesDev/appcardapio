@@ -19,24 +19,18 @@ router.get('/closed-today', authenticate, authorize(['admin']), async (req, res)
     include: { items: true, table: true }
   });
   // Agrupa por mesa
-  const report = closedOrders.reduce((acc, order) => {
-    const tableId = order.tableId;
-    if (!acc[tableId]) {
-      acc[tableId] = {
-        tableNumber: order.table.number,
-        total: 0,
-        orders: [],
-      };
-    }
-    acc[tableId].total += order.total;
-    acc[tableId].orders.push(order);
-    return acc;
-  }, {});
+  type Group = { tableNumber?: number; orders: any[]; total: number };
+  const report: Record<string, Group> = {};
+  for (const order of closedOrders) {
+    const tid = String(order.tableId);
+    if (!report[tid]) report[tid] = { tableNumber: order.table.number, orders: [], total: 0 };
+    report[tid].orders.push(order);
+    report[tid].total += Number(order.total || 0);
+  }
   res.json(Object.values(report));
 });
 
 router.get('/', async (req, res) => {
-  // Se for admin ou garçom, retorna todos os pedidos
   const token = req.headers.authorization?.split(' ')[1];
   let user = null;
   if (token) {
@@ -46,22 +40,29 @@ router.get('/', async (req, res) => {
       user = decoded;
     } catch {}
   }
-  if (user && (user.role === 'admin' || user.role === 'waiter')) {
-    const orders = await prisma.order.findMany({ include: { items: true } });
-    return res.json(orders);
-  }
-  // Se for cliente, permite buscar pedidos da mesa (não retorna pedidos já pagos)
+
   const tableId = req.query.tableId;
   if (tableId) {
-    // para clientes sem permissão, não retornar pedidos com status PAID
+    // If a tableId is provided, return orders for that table.
+    // By default do NOT include PAID orders to avoid resurfacing old closed consumption.
+    // Admins can explicitly request paid orders with ?includePaid=true
+    const includePaid = String(req.query.includePaid || '').toLowerCase() === 'true';
     if (!user) {
       const orders = await prisma.order.findMany({ where: { tableId: Number(tableId), NOT: { status: 'PAID' } }, include: { items: true } });
       return res.json(orders);
     }
-    // usuários autenticados (waiter/admin) continuam recebendo todos os pedidos
-    const orders = await prisma.order.findMany({ where: { tableId: Number(tableId) }, include: { items: true } });
+    // Authenticated users may request paid orders explicitly
+    const where = includePaid ? { tableId: Number(tableId) } : { tableId: Number(tableId), NOT: { status: 'PAID' } };
+    const orders = await prisma.order.findMany({ where, include: { items: true } });
     return res.json(orders);
   }
+
+  // No tableId: only staff may request the full list
+  if (user && (user.role === 'admin' || user.role === 'waiter')) {
+    const orders = await prisma.order.findMany({ include: { items: true } });
+    return res.json(orders);
+  }
+
   return res.status(403).json({ error: 'Acesso negado' });
 });
 
@@ -82,9 +83,24 @@ router.post('/', async (req, res) => {
 
 router.put('/:id/status', authenticate, authorize(['admin','waiter']), async (req, res) => {
   const id = Number(req.params.id);
-  const { status } = req.body;
-  const updated = await prisma.order.update({ where: { id }, data: { status } });
-  res.json(updated);
+  const { status, servicePaid } = req.body as { status: string; servicePaid?: boolean };
+  try {
+    if (status === 'PAID') {
+      const ord = await prisma.order.findUnique({ where: { id } });
+      if (!ord) return res.status(404).json({ error: 'Order not found' });
+      // get establishment serviceCharge
+      const est = await prisma.establishment.findFirst();
+      const serviceCharge = est?.serviceCharge ?? 0;
+      const serviceValue = Number(((ord.total || 0) * (serviceCharge / 100)).toFixed(2));
+      const updated = await prisma.order.update({ where: { id }, data: { status, servicePaid: !!servicePaid, serviceValue: servicePaid ? serviceValue : 0 } });
+      return res.json(updated);
+    }
+    const updated = await prisma.order.update({ where: { id }, data: { status } });
+    return res.json(updated);
+  } catch (err: any) {
+    console.error('PUT /orders/:id/status error', err);
+    return res.status(500).json({ error: 'Failed to update order status' });
+  }
 });
 
 router.put('/:id/items/:itemId/status', authenticate, authorize(['admin','waiter']), async (req, res) => {

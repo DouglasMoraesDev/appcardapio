@@ -26,7 +26,7 @@ const SetupDevice = () => {
       <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-amber-500/5 rounded-full blur-3xl"></div>
       <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-500/5 rounded-full blur-3xl"></div>
       
-      <div className="relative z-10 text-center space-y-12 max-w-2xl w-full">
+      <div className="relative z-10 text-center space-y-12 max-w-full sm:max-w-2xl w-full">
         <div className="space-y-4">
           <img src="https://cervejacamposdojordao.com.br/wp-content/uploads/2021/08/logo-playpub.png" alt="Logo" className="h-24 mx-auto drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]" />
           <h1 className="text-4xl font-serif text-white uppercase tracking-tighter">Sistema de Gestão</h1>

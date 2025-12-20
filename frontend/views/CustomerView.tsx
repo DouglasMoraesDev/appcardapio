@@ -1,10 +1,5 @@
-<<<<<<< HEAD
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-=======
-
-import React, { useState, useEffect } from 'react';
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
 import { useApp } from '../store';
 import { TableStatus, OrderItem, Table, Order, Product } from '../types';
 import { ShoppingCart, Bell, Receipt, Plus, Minus, X, Check, Search, ChevronLeft, Lock, Star, Sparkles, MessageSquare, Timer, Send, UtensilsCrossed } from 'lucide-react';
@@ -347,9 +342,9 @@ const CustomerView: React.FC = () => {
       </div>
 
       {isCartOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center p-0">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/90 backdrop-blur-lg" onClick={() => setIsCartOpen(false)}></div>
-          <div style={{ backgroundColor: theme.card }} className="relative w-full max-w-lg rounded-t-[4rem] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] p-10 space-y-8 animate-in slide-in-from-bottom duration-500 border-t border-white/10">
+          <div style={{ backgroundColor: theme.card }} className="relative w-full max-w-full sm:max-w-lg md:max-w-2xl rounded-t-[3rem] sm:rounded-2xl shadow-[0_-20px_50px_rgba(0,0,0,0.5)] p-6 sm:p-10 space-y-8 animate-in slide-in-from-bottom duration-500 border-t sm:border-t-0 border-white/10">
             <div className="w-16 h-1.5 bg-white/10 rounded-full mx-auto opacity-50 mb-2"></div>
             <div className="flex justify-between items-center">
               <h3 style={{ color: theme.primary }} className="text-4xl font-serif uppercase tracking-tighter">Pedido</h3>
@@ -408,9 +403,9 @@ const CustomerView: React.FC = () => {
       )}
 
       {isBillOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center p-0">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/90 backdrop-blur-lg" onClick={() => setIsBillOpen(false)}></div>
-          <div style={{ backgroundColor: theme.card }} className="relative w-full max-w-lg rounded-t-[4rem] shadow-2xl p-10 space-y-8 animate-in slide-in-from-bottom duration-500 border-t border-white/10">
+          <div style={{ backgroundColor: theme.card }} className="relative w-full max-w-full sm:max-w-lg md:max-w-2xl rounded-t-[3rem] sm:rounded-2xl shadow-2xl p-6 sm:p-10 space-y-8 animate-in slide-in-from-bottom duration-500 border-t sm:border-t-0 border-white/10">
             <div className="w-16 h-1.5 bg-white/10 rounded-full mx-auto opacity-50 mb-2"></div>
             <div className="flex justify-between items-center">
               <h3 style={{ color: theme.primary }} className="text-4xl font-serif uppercase tracking-tighter">Minha Conta</h3>
@@ -467,9 +462,9 @@ const CustomerView: React.FC = () => {
       )}
 
       {isFeedbackOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setIsFeedbackOpen(false)}></div>
-          <div style={{ backgroundColor: theme.card }} className="relative w-full max-w-md rounded-[3rem] p-10 border border-white/5 space-y-8 shadow-2xl animate-in zoom-in-95">
+          <div style={{ backgroundColor: theme.card }} className="relative w-full max-w-full sm:max-w-md rounded-t-[2.5rem] sm:rounded-[3rem] p-6 sm:p-10 border border-white/5 space-y-8 shadow-2xl animate-in zoom-in-95">
             <div className="text-center space-y-4">
                <div style={{ backgroundColor: `${theme.primary}1A`, borderColor: `${theme.primary}33` }} className="w-20 h-20 rounded-full flex items-center justify-center mx-auto border">
                  <Star style={{ color: theme.primary }} className="w-10 h-10 fill-current" />

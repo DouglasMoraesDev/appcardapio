@@ -13,41 +13,14 @@ const TrocaMesaModal: React.FC<{ onLiberar: () => void; onClose: () => void }> =
     setErro('');
     setLoading(true);
     try {
-<<<<<<< HEAD
-      const candidates = (waiters || []).map(w => (w.username ? String((w as any).username) : '')).filter(Boolean);
-      // fallback common usernames
-      const fallbacks = ['douglas', 'garcom', 'waiter'];
-      for (const f of fallbacks) if (!candidates.includes(f)) candidates.push(f);
-
-      let validated = false;
-      for (const username of candidates) {
-        try {
-          const res = await fetch('http://localhost:4000/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password: senha, role: 'waiter' }),
-            credentials: 'include'
-          });
-          if (res.ok) {
-            const d = await res.json();
-            // set authentication in app context so subsequent actions are authorized
-            if (setAccessToken) setAccessToken(d.accessToken);
-            if (setCurrentUser) setCurrentUser({ id: String(d.user.id), name: d.user.name, role: d.user.role });
-            validated = true;
-            break;
-          }
-        } catch {}
-      }
-      if (!validated) {
-=======
-      // Valida senha do garçom no backend
+      // Valida senha do garçom no backend (usa cookie de sessão)
       const res = await fetch('http://localhost:4000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ username: 'douglas', password: senha, role: 'waiter' })
       });
       if (!res.ok) {
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
         setErro('Senha incorreta!');
         setLoading(false);
         return;
@@ -64,9 +37,9 @@ const TrocaMesaModal: React.FC<{ onLiberar: () => void; onClose: () => void }> =
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={onClose}></div>
-      <div className="relative w-full max-w-xs rounded-[3rem] p-10 border border-white/5 space-y-8 shadow-2xl animate-in zoom-in-95 bg-[#0d1f15]">
+      <div className="relative w-full max-w-full sm:max-w-sm md:max-w-md rounded-t-[2.5rem] sm:rounded-[3rem] p-6 sm:p-10 border border-white/5 space-y-8 shadow-2xl animate-in zoom-in-95 bg-[#0d1f15]">
         <div className="text-center space-y-3">
           <Lock className="w-10 h-10 mx-auto text-[#d18a59]" />
           <h3 className="font-serif text-2xl uppercase tracking-widest text-[#d18a59]">Trocar Mesa</h3>

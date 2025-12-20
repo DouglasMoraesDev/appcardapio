@@ -78,6 +78,8 @@ model Order {
   status        String
   timestamp     DateTime    @default(now())
   total         Float
+  serviceValue  Float?
+  servicePaid   Boolean     @default(false)
   paymentMethod String?
 }
 

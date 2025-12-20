@@ -1,9 +1,4 @@
-<<<<<<< HEAD
-// ...código limpo...
-import React, { useState } from 'react';
-=======
 import React, { useState, useEffect } from 'react';
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
 import { useApp } from '../store';
 import { Plus, Trash2, Edit3, Beer, Users, Grid, DollarSign, Image as ImageIcon, Tag, X, Check, Star, TrendingUp, BarChart3, PieChart, ShoppingBag, MessageSquare, Clock, Settings, Palette, Lock, Save } from 'lucide-react';
 import { Product } from '../types';
@@ -15,11 +10,8 @@ const AdminDashboard: React.FC = () => {
     waiters, addWaiter, deleteWaiter, 
     categories, addCategory, deleteCategory, updateCategory,
     tables, orders, feedbacks, establishment, setEstablishment,
-<<<<<<< HEAD
-    addProduct, deleteProduct, saveEstablishment
-=======
-    addProduct, deleteProduct, fetchWithAuth
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
+  addProduct, deleteProduct, saveEstablishment,
+  updateProduct,
   } = useApp();
   // Cálculo do NPS médio (averageRating)
   const averageRating = feedbacks.length > 0 
@@ -55,22 +47,9 @@ const AdminDashboard: React.FC = () => {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
-<<<<<<< HEAD
       const ok = await saveEstablishment();
       if (ok) alert('Alterações salvas com sucesso!');
       else alert('Erro ao salvar alterações.');
-=======
-      const res = await fetchWithAuth('http://localhost:4000/api/establishment', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(establishment)
-      });
-      if (res.ok) {
-        alert('Alterações salvas com sucesso!');
-      } else {
-        alert('Erro ao salvar alterações.');
-      }
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
     } catch (e) {
       alert('Erro ao salvar alterações.');
     }
@@ -117,6 +96,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const totalRevenue = orders.reduce((acc, o) => acc + o.total, 0);
+  const totalService = orders.reduce((acc, o) => acc + (Number(o.serviceValue || 0) || 0), 0);
   const averageTicket = orders.length > 0 ? totalRevenue / orders.length : 0;
   
 
@@ -140,13 +120,8 @@ const AdminDashboard: React.FC = () => {
           <h2 className="text-4xl font-serif text-white uppercase">Painel de Gestão</h2>
           <p className="text-[#d18a59] text-[10px] uppercase font-bold tracking-[0.2em] mt-1">Sessão Administrativa • {establishment.name}</p>
         </div>
-<<<<<<< HEAD
         <div className="flex bg-[#0d1f15] p-1 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar max-w-full">
-            {[
-=======
-        <div className="flex bg-[#0d1f15] p-1 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar max-w-full scrollbar-thin scrollbar-thumb-[#d18a59]/30">
           {[
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
             { id: 'finance', icon: BarChart3, label: 'Financeiro' },
             { id: 'mesas', icon: Grid, label: 'Mesas' },
             { id: 'menu', icon: Beer, label: 'Cardápio' },
@@ -176,6 +151,11 @@ const AdminDashboard: React.FC = () => {
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><TrendingUp className="w-12 h-12" /></div>
               <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest">Receita Total</p>
               <p className="text-3xl font-serif text-[#d18a59] mt-2">R$ {totalRevenue.toFixed(2)}</p>
+            </div>
+            <div className="bg-[#0d1f15] p-6 rounded-3xl border border-white/5 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><DollarSign className="w-12 h-12" /></div>
+              <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest">Taxa de Serviço (Total)</p>
+              <p className="text-3xl font-serif text-[#d18a59] mt-2">R$ {totalService.toFixed(2)}</p>
             </div>
             <div className="bg-[#0d1f15] p-6 rounded-3xl border border-white/5 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><ShoppingBag className="w-12 h-12" /></div>
@@ -213,37 +193,6 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
             <div className="bg-[#0d1f15] p-8 rounded-[2rem] border border-white/5 space-y-6">
-<<<<<<< HEAD
-              <h4 className="text-xl font-serif flex items-center gap-2 text-white"><Grid className="w-5 h-5 text-[#d18a59]" /> Mesas do Dia</h4>
-              <div className="space-y-3">
-                {(() => {
-                  const start = new Date(); start.setHours(0,0,0,0);
-                  const todays = orders.filter(o => new Date(o.timestamp) >= start);
-                  // unique table ids
-                  const seen = new Set<string>();
-                  const list: any[] = [];
-                  for (const o of todays) {
-                    const tid = String(o.tableId);
-                    if (!seen.has(tid)) {
-                      seen.add(tid);
-                      const table = tables.find(t => String(t.id) === tid);
-                      const tableOrders = todays.filter(x => String(x.tableId) === tid);
-                      const total = tableOrders.reduce((s, x) => s + Number(x.total || 0), 0);
-                      list.push({ tid, number: table?.number ?? tid, orders: tableOrders, total });
-                    }
-                    if (list.length >= 6) break;
-                  }
-                  if (list.length === 0) return <p className="text-gray-500 italic">Nenhuma mesa registrada hoje.</p>;
-                  return list.map(item => (
-                    <div key={item.tid} className="flex justify-between items-center bg-black/20 p-3 rounded-lg border border-white/5">
-                      <div>
-                        <div className="text-sm font-bold text-white">Mesa {item.number}</div>
-                        <div className="text-[10px] text-gray-400">Pedidos: {item.orders.length}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm text-gray-300">R$ {item.total.toFixed(2)}</div>
-                      </div>
-=======
               <h4 className="text-xl font-serif flex items-center gap-2 text-white"><PieChart className="w-5 h-5 text-[#d18a59]" /> Mix de Categorias</h4>
               <div className="h-48 flex items-end gap-3 justify-center pt-4 overflow-x-auto no-scrollbar scrollbar-thin scrollbar-thumb-[#d18a59]/30">
                 {categories.map((cat) => {
@@ -257,10 +206,9 @@ const AdminDashboard: React.FC = () => {
                       <div className="w-10 bg-[#d18a59]/20 border-t-2 border-x-2 border-[#d18a59]/40 rounded-t-lg transition-all group-hover:bg-[#d18a59]/40" style={{ height: `${heightPx}px` }}></div>
                       <span className="text-[10px] uppercase font-black text-gray-500 mt-2 whitespace-nowrap block w-full text-center break-words">{catName}</span>
                       <span className="text-[12px] text-[#d18a59] font-black">{count}</span>
->>>>>>> 49dba84f811702c1b7465129909d2fbe906ab57a
                     </div>
-                  ));
-                })()}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -301,9 +249,9 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
                     <div className="mt-4 space-y-2">
-                      {g.orders.map(o => (
+                      {g.orders.map((o, i) => (
                         <div key={o.id} className="flex justify-between items-center">
-                          <div className="text-sm text-white">Pedido #{o.id}</div>
+                          <div className="text-sm text-white">Cliente {i+1}</div>
                           <div className="text-sm text-gray-300">R$ {Number(o.total).toFixed(2)}</div>
                         </div>
                       ))}
@@ -354,7 +302,7 @@ const AdminDashboard: React.FC = () => {
       )}
 
       {editingProduct && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/80" onClick={() => setEditingProduct(null)}></div>
           <form onSubmit={async (e) => {
             e.preventDefault();
@@ -370,12 +318,17 @@ const AdminDashboard: React.FC = () => {
               await updateProduct(String(editingProduct.id), patch as any);
             } catch {}
             setEditingProduct(null);
-          }} className="relative z-50 w-full max-w-2xl p-8 rounded-2xl bg-[#0d1f15] border border-white/5">
+          }} className="relative z-50 w-full max-w-full sm:max-w-2xl p-6 sm:p-8 rounded-t-[2rem] sm:rounded-2xl bg-[#0d1f15] border border-white/5">
             <h3 className="text-xl font-bold text-white mb-4">Editar Produto</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input className="bg-[#06120c] p-3 rounded" value={editingProduct.name} onChange={e => setEditingProduct({...editingProduct, name: e.target.value} as Product)} />
               <input type="number" className="bg-[#06120c] p-3 rounded" value={String(editingProduct.price)} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)} as Product)} />
-              <input className="bg-[#06120c] p-3 rounded col-span-2" value={editingProduct.category as string} onChange={e => setEditingProduct({...editingProduct, category: e.target.value} as Product)} />
+              <div className="col-span-2">
+                <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest ml-1 mb-1 block">Categoria</label>
+                <select className="w-full bg-[#06120c] p-3 rounded" value={typeof editingProduct.category === 'string' ? editingProduct.category : (editingProduct.category?.name || categories[0] || 'Geral')} onChange={e => setEditingProduct({...editingProduct, category: e.target.value} as Product)}>
+                  {categories.map(c => <option key={String(c)} value={String(c)}>{String(c)}</option>)}
+                </select>
+              </div>
               <input className="bg-[#06120c] p-3 rounded col-span-2" value={editingProduct.image} onChange={e => setEditingProduct({...editingProduct, image: e.target.value} as Product)} />
               <textarea className="bg-[#06120c] p-3 rounded col-span-2" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value} as Product)} />
               <label className="flex items-center gap-2"><input type="checkbox" checked={!!editingProduct.isHighlight} onChange={e => setEditingProduct({...editingProduct, isHighlight: e.target.checked} as Product)} /> Destaque</label>

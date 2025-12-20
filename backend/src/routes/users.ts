@@ -13,8 +13,17 @@ router.get('/', authenticate, authorize(['admin']), async (req, res) => {
 router.post('/', authenticate, authorize(['admin']), async (req, res) => {
   const { name, username, password, role, pin } = req.body;
   const hashed = password ? await bcrypt.hash(password, 8) : undefined;
-  const user = await prisma.user.create({ data: { name, username, password: hashed, role, pin } });
-  res.json(user);
+  try {
+    const user = await prisma.user.create({ data: { name, username, password: hashed, role, pin } });
+    res.json(user);
+  } catch (error: any) {
+    // handle unique username
+    if (error?.code === 'P2002') {
+      return res.status(409).json({ error: 'Username already exists' });
+    }
+    console.error('POST /users error', error);
+    return res.status(500).json({ error: 'Failed to create user', details: error?.message });
+  }
 });
 
 router.delete('/:id', authenticate, authorize(['admin']), async (req, res) => {
