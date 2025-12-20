@@ -1,6 +1,5 @@
-<<<<<<< HEAD
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useApp } from '../store';
 import { TableStatus, OrderItem, Table, Order, Product } from '../types';
 import { ShoppingCart, Bell, Receipt, Plus, Minus, X, Check, Search, ChevronLeft, Lock, Star, Sparkles, MessageSquare, Timer, Send, UtensilsCrossed } from 'lucide-react';
@@ -8,19 +7,39 @@ import TrocaMesaModal from './TrocaMesaModal';
 
 const CustomerView: React.FC = () => {
   const { products, addOrder, updateTableStatus, tables, deviceTableId, setDeviceTableId, categories: appCategories, addFeedback, establishment, openTable, fetchOrdersByTable, currentUser } = useApp();
+  const location = useLocation();
+  const notifiedRef = useRef<Set<string>>(new Set());
   // Estado local para pedidos do cliente
   const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
   // Busca pedidos da mesa sem sobrescrever o global
   useEffect(() => {
+    let interval: any;
     const fetchOrders = async () => {
       if (!deviceTableId) return;
       const pedidos = await fetchOrdersByTable(deviceTableId);
+      // detect new delivered items and notify once
+      const deliveredIds: string[] = pedidos.flatMap(p => (p.items || []).filter((it: any) => it.status === 'DELIVERED').map((it: any) => String(it.id)));
+      for (const id of deliveredIds) {
+        if (!notifiedRef.current.has(id)) {
+          notifiedRef.current.add(id);
+          showNotification('Seu pedido foi entregue', 'info');
+        }
+      }
       setCustomerOrders(pedidos);
     };
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 5000);
+    if (deviceTableId) {
+      fetchOrders();
+      interval = setInterval(fetchOrders, 5000);
+    }
     return () => clearInterval(interval);
   }, [deviceTableId, fetchOrdersByTable]);
+
+  // Support opening customer view with ?tableId= in URL (used by waiter to open client's menu)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tableId = params.get('tableId');
+    if (tableId) setDeviceTableId(tableId);
+  }, [location.search, setDeviceTableId]);
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [activeCategory, setActiveCategory] = useState('Todas');
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,15 +70,23 @@ const CustomerView: React.FC = () => {
     (p.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const groupedProducts: Record<string, Product[]> = appCategories.reduce((acc, cat) => {
-    const productsInCat = filteredProducts.filter(p => p.category === cat);
-    if (productsInCat.length > 0) acc[cat] = productsInCat;
-    return acc;
-  }, {} as Record<string, Product[]>);
+  let groupedProducts: Record<string, Product[]> = {};
+  if (activeCategory === 'Todas') {
+    groupedProducts['Todas'] = filteredProducts;
+  } else {
+    // show only the selected category
+    const selected = filteredProducts.filter(p => p.category === activeCategory);
+    if (selected.length > 0) groupedProducts[activeCategory] = selected;
+    // include products that don't match any known category under 'Outros' when activeCategory explicitly 'Outros'
+    if (activeCategory === 'Outros') {
+      const others = filteredProducts.filter(p => !p.category || !appCategories.includes(p.category));
+      if (others.length > 0) groupedProducts['Outros'] = others;
+    }
+  }
 
   const showNotification = (message: string, type: 'success' | 'info' = 'success') => {
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 4000);
+    setTimeout(() => setNotification(null), 3500);
   };
 
   const handleStartService = async (e: React.FormEvent) => {
@@ -132,7 +159,8 @@ const CustomerView: React.FC = () => {
   // Troca de mesa só com senha do garçom
   const handleLiberarMesa = () => {
     setIsChangeTableOpen(false);
-    window.location.reload(); // força reload para garantir tela limpa
+    // redireciona para a tela de abrir mesa para que o número seja informado
+    window.location.hash = '#/abrir-mesa';
   };
 
   // Se não houver mesa ativa, não renderiza nada (tablet/garçom sempre tem mesa definida)
@@ -488,6 +516,7 @@ const CustomerView: React.FC = () => {
         <TrocaMesaModal onLiberar={handleLiberarMesa} onClose={() => setIsChangeTableOpen(false)} />
       )}
 
+
       {notification && (
         <div className="fixed top-12 left-8 right-8 z-[200] flex justify-center pointer-events-none">
           <div style={{ backgroundColor: theme.card, borderColor: notification.type === 'success' ? 'rgba(34,197,94,0.3)' : theme.primary }} className="px-10 py-6 rounded-[2.5rem] shadow-[0_30px_60px_rgba(0,0,0,0.6)] flex items-center gap-5 animate-in fade-in slide-in-from-top-10 duration-700 border text-white">
@@ -500,9 +529,6 @@ const CustomerView: React.FC = () => {
       )}
     </div>
   );
-};
+}
 
 export default CustomerView;
-=======
-// ...existing code...
->>>>>>> 988c595ccfaec2ff0d4eee9145861acc3eaf684f

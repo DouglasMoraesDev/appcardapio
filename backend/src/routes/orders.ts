@@ -19,9 +19,15 @@ router.get('/', async (req, res) => {
     const orders = await prisma.order.findMany({ include: { items: true } });
     return res.json(orders);
   }
-  // Se for cliente, permite buscar pedidos da mesa
+  // Se for cliente, permite buscar pedidos da mesa (não retorna pedidos já pagos)
   const tableId = req.query.tableId;
   if (tableId) {
+    // para clientes sem permissão, não retornar pedidos com status PAID
+    if (!user) {
+      const orders = await prisma.order.findMany({ where: { tableId: Number(tableId), NOT: { status: 'PAID' } }, include: { items: true } });
+      return res.json(orders);
+    }
+    // usuários autenticados (waiter/admin) continuam recebendo todos os pedidos
     const orders = await prisma.order.findMany({ where: { tableId: Number(tableId) }, include: { items: true } });
     return res.json(orders);
   }

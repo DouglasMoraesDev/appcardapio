@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-
+// ...código limpo...
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Product, Table, Order, TableStatus, OrderStatus, Establishment, User, OrderItem, Feedback, ThemeConfig } from './types';
 
@@ -55,7 +54,7 @@ const INITIAL_THEME: ThemeConfig = {
   accent: "#c17a49"
 };
 
-const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/api';
+const API_BASE = process.env?.VITE_API_URL || 'http://localhost:4000/api';
 
 const INITIAL_PRODUCTS: Product[] = [];
 
@@ -91,8 +90,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         let localAccess: string | null = null;
         const r = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
+        let d: any = null;
         if (r.ok) {
-          const d = await r.json();
+          d = await r.json();
           localAccess = d.accessToken;
           setAccessToken(localAccess);
           setCurrentUser({ id: String(d.user.id), name: d.user.name, role: d.user.role } as any);
@@ -101,7 +101,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const headers: any = { 'Content-Type': 'application/json' };
         if (localAccess) headers['Authorization'] = `Bearer ${localAccess}`;
 
-        async function fetchWithRetry(url: string) {
+        const fetchWithRetry = async (url: string) => {
           let res = await fetch(url, { headers });
           if (res.status === 401 || res.status === 403) {
             // tenta renovar token
@@ -111,11 +111,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               localAccess = d.accessToken;
               setAccessToken(localAccess);
               headers['Authorization'] = `Bearer ${localAccess}`;
-              res = await fetch(url, { headers });
             }
+            res = await fetch(url, { headers });
           }
-          return res.ok ? res.json() : null;
-        }
+          return res.ok ? await res.json() : null;
+        };
+
         // Carrega dados públicos sempre, protegidos só se autenticado
         const [estRes, prodRes, catRes, tableRes, fbRes] = await Promise.all([
           fetchWithRetry(`${API_BASE}/establishment`).catch(() => null),
@@ -125,7 +126,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           fetchWithRetry(`${API_BASE}/feedbacks`).catch(() => [])
         ]);
         if (estRes) setEstablishment(estRes);
-        if (Array.isArray(prodRes)) setProducts(prodRes.map((p: any) => ({ ...p, id: String(p.id) })));
+        if (Array.isArray(prodRes)) setProducts(prodRes.map((p: any) => ({ ...p, id: String(p.id), category: (typeof p.category === 'string' ? p.category : (p.category?.name || 'Geral')) } as any)));
         if (Array.isArray(catRes)) setCategories(catRes.map((c: any) => c.name));
         if (Array.isArray(tableRes)) setTables(tableRes.map((t: any) => ({ ...t, id: String(t.id) })));
         if (Array.isArray(fbRes)) setFeedbacks(fbRes.map((f: any) => ({ ...f, id: String(f.id) })));
@@ -134,7 +135,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (localAccess && d && d.user && d.user.role === 'admin') {
           const [orderRes, userRes] = await Promise.all([
             fetchWithRetry(`${API_BASE}/orders`).catch(() => []),
-            fetchWithRetry(`${API_BASE}/users`).catch(() => [])
+            fetchWithRetry(`${API_BASE}/users`).catch(() => []),
           ]);
           if (Array.isArray(orderRes)) setOrders(orderRes.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })));
           if (Array.isArray(userRes)) setWaiters(userRes.filter((u:any)=>u.role==='waiter').map((u:any)=>({ ...u, id: String(u.id) })));
@@ -151,6 +152,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     })();
   }, []);
+
+  // When accessToken or currentUser changes, fetch protected resources for admins
+  useEffect(() => {
+    if (!accessToken || !currentUser) return;
+    (async () => {
+      try {
+        if (currentUser.role === 'admin') {
+          const [orderRes, userRes] = await Promise.all([
+            fetchWithAuth(`${API_BASE}/orders`).catch(() => []),
+            fetchWithAuth(`${API_BASE}/users`).catch(() => [])
+          ]);
+          if (Array.isArray(orderRes)) setOrders(orderRes.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })));
+          if (Array.isArray(userRes)) setWaiters(userRes.filter((u:any)=>u.role==='waiter').map((u:any)=>({ ...u, id: String(u.id) })));
+        } else if (currentUser.role === 'waiter') {
+          // waiter may want to see orders
+          const orderRes = await fetchWithAuth(`${API_BASE}/orders`).catch(() => []);
+          if (Array.isArray(orderRes)) setOrders(orderRes.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })));
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, [accessToken, currentUser]);
+
+  // Quando o accessToken ou currentUser mudarem, busca dados protegidos para admins
+  useEffect(() => {
+    (async () => {
+      if (!accessToken || !currentUser) return;
+      try {
+        if (currentUser.role === 'admin') {
+          const ordersRes = await fetchWithAuth(`${API_BASE}/orders`);
+          if (ordersRes && ordersRes.ok) {
+            const ordersData = await ordersRes.json();
+            setOrders(Array.isArray(ordersData) ? ordersData.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })) : []);
+          }
+          const usersRes = await fetchWithAuth(`${API_BASE}/users`);
+          if (usersRes && usersRes.ok) {
+            const usersData = await usersRes.json();
+            setWaiters(Array.isArray(usersData) ? usersData.filter((u:any)=>u.role==='waiter').map((u:any)=>({ ...u, id: String(u.id) })) : []);
+          }
+        } else if (currentUser.role === 'waiter') {
+          // para garçom, atualiza pedidos se necessário
+          const tableId = localStorage.getItem('deviceTableId');
+          if (tableId) {
+            const ordRes = await fetchWithAuth(`${API_BASE}/orders?tableId=${tableId}`);
+            if (ordRes && ordRes.ok) {
+              const ordData = await ordRes.json();
+              setOrders(Array.isArray(ordData) ? ordData.map((o: any) => ({ ...o, id: String(o.id), items: (o.items || []).map((it: any) => ({ ...it, id: String(it.id), productId: String(it.productId) })) })) : []);
+            }
+          }
+        }
+      } catch (e) {
+        // fail silently
+      }
+    })();
+  }, [accessToken, currentUser]);
 
   useEffect(() => {
     // Attempt to persist changes to backend; fallback to localStorage when offline
@@ -174,7 +231,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (currentUser) localStorage.setItem('currentUser', JSON.stringify(currentUser)); else localStorage.removeItem('currentUser');
       if (deviceTableId) localStorage.setItem('deviceTableId', deviceTableId); else localStorage.removeItem('deviceTableId');
     })();
-  }, [establishment, products, categories, tables, orders, waiters, deviceTableId, feedbacks, currentUser]);
+  }, [establishment, products, categories, tables, orders, waiters, feedbacks, currentUser, deviceTableId]);
 
   const fetchWithAuth = async (input: RequestInfo, init?: RequestInit) => {
     let access = accessToken;
@@ -191,11 +248,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers['Authorization'] = `Bearer ${access}`;
         res = await fetch(input, { credentials: 'include', ...init, headers });
       } else {
-        // Se não conseguir renovar, faz logout e força login
+        // Se não conseguir renovar, limpa estado e redireciona para login de garçom
         setAccessToken(null);
         setCurrentUser(null);
-        // Redireciona para login (reload simples para garantir)
-        window.location.reload();
+        try { localStorage.removeItem('currentUser'); } catch {}
+        // envia usuário para a tela de login waiter para reautenticação
+        window.location.hash = '#/login/waiter';
         throw new Error('Sessão expirada. Faça login novamente.');
       }
     }
@@ -324,9 +382,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const res = await fetchWithAuth(`${API_BASE}/products`, { method: 'POST', body: JSON.stringify(p) });
       const created = await res.json();
-      setProducts(prev => [...prev, { ...created, id: String(created.id) }]);
+      const normalized = { ...created, id: String(created.id), category: (typeof created.category === 'string' ? created.category : (created.category?.name || 'Geral')) } as any;
+      setProducts(prev => [...prev, normalized]);
     } catch (e) {
       setProducts(prev => [...prev, p]);
+    }
+  };
+
+  const updateProduct = async (id: string, patch: Partial<Product>) => {
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/products/${id}`, { method: 'PUT', body: JSON.stringify(patch) });
+      const updated = await res.json();
+      const normalized = { ...updated, id: String(updated.id), category: (typeof updated.category === 'string' ? updated.category : (updated.category?.name || 'Geral')) } as any;
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, ...normalized } : p));
+      return true;
+    } catch (e) {
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+      return false;
     }
   };
 
@@ -382,6 +454,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const saveEstablishment = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/establishment`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(establishment) });
+      if (res.ok) {
+        const updated = await res.json();
+        setEstablishment(updated);
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  };
+
   const deleteCategory = async (name: string) => {
     try {
       const res = await fetchWithAuth(`${API_BASE}/categories`);
@@ -431,6 +515,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateTableStatus,
       updateOrderStatus,
       updateOrderItemStatus,
+      updateProduct,
       deleteProduct,
       addProduct,
       toggleProductHighlight,
@@ -441,6 +526,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateCategory,
       openTable,
       fetchOrdersByTable
+      , saveEstablishment
     }}>
       {children}
     </AppContext.Provider>
@@ -452,6 +538,3 @@ export const useApp = () => {
   if (!context) throw new Error('useApp must be used within AppProvider');
   return context;
 };
-=======
-// ...existing code...
->>>>>>> 988c595ccfaec2ff0d4eee9145861acc3eaf684f

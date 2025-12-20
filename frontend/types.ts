@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-
 export enum OrderStatus {
   PENDING = 'PENDING',
   PARTIAL = 'PARTIAL',
@@ -84,6 +82,3 @@ export interface Feedback {
   comment: string;
   timestamp: number;
 }
-=======
-// ...existing code...
->>>>>>> 988c595ccfaec2ff0d4eee9145861acc3eaf684f

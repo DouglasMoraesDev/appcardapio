@@ -3,7 +3,7 @@ import { useApp } from '../store';
 import { Lock } from 'lucide-react';
 
 const TrocaMesaModal: React.FC<{ onLiberar: () => void; onClose: () => void }> = ({ onLiberar, onClose }) => {
-  const { setDeviceTableId } = useApp();
+  const { setDeviceTableId, waiters, setAccessToken, setCurrentUser } = useApp();
   const [senha, setSenha] = useState('');
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
@@ -13,19 +13,39 @@ const TrocaMesaModal: React.FC<{ onLiberar: () => void; onClose: () => void }> =
     setErro('');
     setLoading(true);
     try {
-      // Valida senha do garçom no backend
-      const res = await fetch('http://localhost:4000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'garcom', password: senha, role: 'waiter' })
-      });
-      if (!res.ok) {
+      const candidates = (waiters || []).map(w => (w.username ? String((w as any).username) : '')).filter(Boolean);
+      // fallback common usernames
+      const fallbacks = ['douglas', 'garcom', 'waiter'];
+      for (const f of fallbacks) if (!candidates.includes(f)) candidates.push(f);
+
+      let validated = false;
+      for (const username of candidates) {
+        try {
+          const res = await fetch('http://localhost:4000/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password: senha, role: 'waiter' }),
+            credentials: 'include'
+          });
+          if (res.ok) {
+            const d = await res.json();
+            // set authentication in app context so subsequent actions are authorized
+            if (setAccessToken) setAccessToken(d.accessToken);
+            if (setCurrentUser) setCurrentUser({ id: String(d.user.id), name: d.user.name, role: d.user.role });
+            validated = true;
+            break;
+          }
+        } catch {}
+      }
+      if (!validated) {
         setErro('Senha incorreta!');
         setLoading(false);
         return;
       }
       setDeviceTableId(null);
       onLiberar();
+      // redirect to abrir-mesa so the operator can input the new table number
+      window.location.hash = '#/abrir-mesa';
     } catch (err) {
       setErro('Erro ao validar senha.');
     } finally {

@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-
+// ...código limpo...
 import React, { useState } from 'react';
 import { useApp } from '../store';
 import { Plus, Trash2, Edit3, Beer, Users, Grid, DollarSign, Image as ImageIcon, Tag, X, Check, Star, TrendingUp, BarChart3, PieChart, ShoppingBag, MessageSquare, Clock, Settings, Palette, Lock, Save } from 'lucide-react';
@@ -11,11 +10,12 @@ const AdminDashboard: React.FC = () => {
     waiters, addWaiter, deleteWaiter, 
     categories, addCategory, deleteCategory, updateCategory,
     tables, orders, feedbacks, establishment, setEstablishment,
-    addProduct, deleteProduct
+    addProduct, deleteProduct, saveEstablishment
   } = useApp();
   
   const [activeTab, setActiveTab] = useState<'finance' | 'menu' | 'categories' | 'waiters' | 'feedbacks' | 'settings'>('finance');
   const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditingCategory, setIsEditingCategory] = useState<string | null>(null);
   const [newCatName, setNewCatName] = useState('');
   const [newProduct, setNewProduct] = useState<Partial<Product>>({ 
@@ -40,16 +40,9 @@ const AdminDashboard: React.FC = () => {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
-      const res = await fetch('http://localhost:4000/api/establishment', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(establishment)
-      });
-      if (res.ok) {
-        alert('Alterações salvas com sucesso!');
-      } else {
-        alert('Erro ao salvar alterações.');
-      }
+      const ok = await saveEstablishment();
+      if (ok) alert('Alterações salvas com sucesso!');
+      else alert('Erro ao salvar alterações.');
     } catch (e) {
       alert('Erro ao salvar alterações.');
     }
@@ -74,7 +67,7 @@ const AdminDashboard: React.FC = () => {
 
   const handleAddCategory = () => {
     if (!categoryName.trim()) return;
-    addCategory(categoryName);
+    addCategory(categoryName.trim());
     setCategoryName('');
   };
 
@@ -100,7 +93,7 @@ const AdminDashboard: React.FC = () => {
   
   // Corrige para considerar produtos existentes e não só pedidos
   const productRanking = products.reduce((acc: any, p) => {
-    const totalVendidos = orders.flatMap(o => o.items).filter(i => i.productId === p.id).reduce((sum, i) => sum + i.quantity, 0);
+    const totalVendidos = orders.flatMap(o => o.items).filter(i => String(i.productId) === String(p.id)).reduce((sum, i) => sum + i.quantity, 0);
     acc[p.name] = totalVendidos;
     return acc;
   }, {});
@@ -122,8 +115,9 @@ const AdminDashboard: React.FC = () => {
           <p className="text-[#d18a59] text-[10px] uppercase font-bold tracking-[0.2em] mt-1">Sessão Administrativa • {establishment.name}</p>
         </div>
         <div className="flex bg-[#0d1f15] p-1 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar max-w-full">
-          {[
+            {[
             { id: 'finance', icon: BarChart3, label: 'Financeiro' },
+            { id: 'mesas', icon: Grid, label: 'Mesas' },
             { id: 'menu', icon: Beer, label: 'Cardápio' },
             { id: 'categories', icon: Tag, label: 'Categorias' },
             { id: 'waiters', icon: Users, label: 'Equipe' },
@@ -186,23 +180,89 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
             <div className="bg-[#0d1f15] p-8 rounded-[2rem] border border-white/5 space-y-6">
-              <h4 className="text-xl font-serif flex items-center gap-2 text-white"><PieChart className="w-5 h-5 text-[#d18a59]" /> Mix de Categorias</h4>
-              <div className="h-48 flex items-end gap-3 justify-center pt-4 overflow-x-auto no-scrollbar">
-                {categories.map((cat) => {
-                  const catName = typeof cat === 'string' ? cat : cat?.name;
-                  const count = products.filter(p => p.category === catName).length;
-                  const totalProducts = products.length || 1;
-                  const height = totalProducts > 0 ? Math.max(10, (count / totalProducts) * 100) : 10;
-                  return (
-                    <div key={catName} className="flex flex-col items-center gap-2 w-16 shrink-0 group">
-                      <div className="w-8 bg-[#d18a59]/20 border-t-2 border-x-2 border-[#d18a59]/40 rounded-t-lg transition-all group-hover:bg-[#d18a59]/40" style={{ height: `${height}%` }}></div>
-                      <span className="text-[8px] uppercase font-black text-gray-500 rotate-45 mt-4 whitespace-nowrap block w-full text-center">{catName}</span>
-                      <span className="text-[10px] text-[#d18a59] font-black">{count}</span>
+              <h4 className="text-xl font-serif flex items-center gap-2 text-white"><Grid className="w-5 h-5 text-[#d18a59]" /> Mesas do Dia</h4>
+              <div className="space-y-3">
+                {(() => {
+                  const start = new Date(); start.setHours(0,0,0,0);
+                  const todays = orders.filter(o => new Date(o.timestamp) >= start);
+                  // unique table ids
+                  const seen = new Set<string>();
+                  const list: any[] = [];
+                  for (const o of todays) {
+                    const tid = String(o.tableId);
+                    if (!seen.has(tid)) {
+                      seen.add(tid);
+                      const table = tables.find(t => String(t.id) === tid);
+                      const tableOrders = todays.filter(x => String(x.tableId) === tid);
+                      const total = tableOrders.reduce((s, x) => s + Number(x.total || 0), 0);
+                      list.push({ tid, number: table?.number ?? tid, orders: tableOrders, total });
+                    }
+                    if (list.length >= 6) break;
+                  }
+                  if (list.length === 0) return <p className="text-gray-500 italic">Nenhuma mesa registrada hoje.</p>;
+                  return list.map(item => (
+                    <div key={item.tid} className="flex justify-between items-center bg-black/20 p-3 rounded-lg border border-white/5">
+                      <div>
+                        <div className="text-sm font-bold text-white">Mesa {item.number}</div>
+                        <div className="text-[10px] text-gray-400">Pedidos: {item.orders.length}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-300">R$ {item.total.toFixed(2)}</div>
+                      </div>
                     </div>
-                  );
-                })}
+                  ));
+                })()}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'mesas' && (
+        <div className="space-y-6">
+          <h3 className="text-2xl font-serif text-white">Mesas Finalizadas</h3>
+          <div className="grid grid-cols-1 gap-4">
+            {(() => {
+              // agrupa pedidos pagos por mesa
+              const paidOrders = orders.filter(o => o.status === 'PAID');
+              const grouped: Record<string, { tableNumber?: number, orders: any[], total: number }> = {};
+              for (const o of paidOrders) {
+                const tid = String(o.tableId);
+                if (!grouped[tid]) grouped[tid] = { tableNumber: undefined, orders: [], total: 0 };
+                grouped[tid].orders.push(o);
+                grouped[tid].total += Number(o.total || 0);
+              }
+              const rows = Object.entries(grouped);
+              if (rows.length === 0) return <p className="text-gray-500 italic">Nenhuma mesa finalizada ainda.</p>;
+              return rows.map(([tid, g]) => {
+                const table = tables.find(t => String(t.id) === tid);
+                const service = establishment.serviceCharge || 0;
+                const totalWithService = g.total + (g.total * (service/100));
+                return (
+                  <div key={tid} className="bg-[#0d1f15] p-6 rounded-2xl border border-white/5">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="text-lg font-bold text-white">Mesa {table?.number || tid}</h4>
+                        <p className="text-xs text-gray-400">Pedidos: {g.orders.length}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-400">Total</p>
+                        <p className="text-2xl font-serif text-[#d18a59]">R$ {totalWithService.toFixed(2)}</p>
+                        <p className="text-xs text-gray-500">(Inclui taxa de serviço {service}%)</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      {g.orders.map(o => (
+                        <div key={o.id} className="flex justify-between items-center">
+                          <div className="text-sm text-white">Pedido #{o.id}</div>
+                          <div className="text-sm text-gray-300">R$ {Number(o.total).toFixed(2)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
           </div>
         </div>
       )}
@@ -234,13 +294,48 @@ const AdminDashboard: React.FC = () => {
                   </div>
                   <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest">{typeof product.category === 'string' ? product.category : product.category?.name}</p>
                     <div className="flex gap-2 pt-4">
-                    <button className="flex-1 bg-[#06120c] p-2.5 rounded-xl text-gray-500 hover:text-white transition-colors flex justify-center border border-white/5"><Edit3 className="w-4 h-4" /></button>
+                    <button onClick={() => setEditingProduct(product)} className="flex-1 bg-[#06120c] p-2.5 rounded-xl text-gray-500 hover:text-white transition-colors flex justify-center border border-white/5"><Edit3 className="w-4 h-4" /></button>
                     <button onClick={() => { if(confirm('Excluir?')) deleteProduct(product.id) }} className="flex-1 bg-[#06120c] p-2.5 rounded-xl text-gray-500 hover:text-red-400 transition-colors flex justify-center border border-white/5"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {editingProduct && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80" onClick={() => setEditingProduct(null)}></div>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            const patch: Partial<Product> = {
+              name: editingProduct.name,
+              price: Number(editingProduct.price),
+              description: editingProduct.description,
+              category: editingProduct.category,
+              image: editingProduct.image,
+              isHighlight: !!editingProduct.isHighlight
+            };
+            try {
+              await updateProduct(String(editingProduct.id), patch as any);
+            } catch {}
+            setEditingProduct(null);
+          }} className="relative z-50 w-full max-w-2xl p-8 rounded-2xl bg-[#0d1f15] border border-white/5">
+            <h3 className="text-xl font-bold text-white mb-4">Editar Produto</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input className="bg-[#06120c] p-3 rounded" value={editingProduct.name} onChange={e => setEditingProduct({...editingProduct, name: e.target.value} as Product)} />
+              <input type="number" className="bg-[#06120c] p-3 rounded" value={String(editingProduct.price)} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)} as Product)} />
+              <input className="bg-[#06120c] p-3 rounded col-span-2" value={editingProduct.category as string} onChange={e => setEditingProduct({...editingProduct, category: e.target.value} as Product)} />
+              <input className="bg-[#06120c] p-3 rounded col-span-2" value={editingProduct.image} onChange={e => setEditingProduct({...editingProduct, image: e.target.value} as Product)} />
+              <textarea className="bg-[#06120c] p-3 rounded col-span-2" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value} as Product)} />
+              <label className="flex items-center gap-2"><input type="checkbox" checked={!!editingProduct.isHighlight} onChange={e => setEditingProduct({...editingProduct, isHighlight: e.target.checked} as Product)} /> Destaque</label>
+            </div>
+            <div className="flex gap-4 mt-6">
+              <button type="button" onClick={() => setEditingProduct(null)} className="px-4 py-2 rounded bg-gray-800 text-white">Cancelar</button>
+              <button type="submit" className="px-4 py-2 rounded bg-amber-500 text-black font-bold">Salvar</button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -524,6 +619,3 @@ const AdminDashboard: React.FC = () => {
 };
 
 export default AdminDashboard;
-=======
-// ...existing code...
->>>>>>> 988c595ccfaec2ff0d4eee9145861acc3eaf684f

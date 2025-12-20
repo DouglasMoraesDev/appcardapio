@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-
+// ...código limpo...
 import React, { useState } from 'react';
 // Fix: Use namespace import for react-router-dom to resolve "no exported member" errors
 import * as ReactRouterDOM from 'react-router-dom';
@@ -94,6 +93,3 @@ const LoginView: React.FC = () => {
 };
 
 export default LoginView;
-=======
-// ...existing code...
->>>>>>> 988c595ccfaec2ff0d4eee9145861acc3eaf684f
