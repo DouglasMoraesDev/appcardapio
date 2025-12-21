@@ -32,6 +32,7 @@ export default {
     res.json(atualizada);
   },
 
+
   /**
    * Remove uma categoria pelo ID (apenas admin)
    */
@@ -42,3 +43,5 @@ export default {
     res.json({ ok: true });
   }
 };
+
+
