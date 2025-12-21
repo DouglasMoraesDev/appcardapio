@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useApp } from '../store';
 import { ArrowLeft, Store, MapPin, Image as ImageIcon, CreditCard, Hash, Percent, User as UserIcon, Lock } from 'lucide-react';
+import InfoModal from '../components/InfoModal';
 
 const { useNavigate } = ReactRouterDOM;
 
@@ -22,7 +23,8 @@ const RegistrationView: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.adminUsername || !form.adminPassword) {
-      alert("Por favor, preencha os campos obrigatórios.");
+      setInfoMessage('Por favor, preencha os campos obrigatórios.');
+      setInfoOpen(true);
       return;
     }
 
@@ -36,8 +38,8 @@ const RegistrationView: React.FC = () => {
 
     (async () => {
       try {
-        const API = (import.meta.env.VITE_API_URL as string) || 'http://localhost:4000';
-        const res = await fetch(`${API}/api/establishment`, {
+        const API = (import.meta.env.VITE_API_URL as string) || 'http://localhost:4000/api';
+        const res = await fetch(`${API.replace(/\/$/, '')}/establishment`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -59,19 +61,28 @@ const RegistrationView: React.FC = () => {
         });
         if (!res.ok) {
           const txt = await res.text();
-          alert('Erro ao criar estabelecimento: ' + txt);
+          setInfoMessage('Erro ao criar estabelecimento: ' + txt);
+          setInfoOpen(true);
           return;
         }
         const created = await res.json();
         setEstablishment({ ...created, theme: { background: '#06120c', card: '#0d1f15', text: '#fefce8', primary: '#d18a59', accent: '#c17a49', ...(created.theme || {}) } });
-        alert('Estabelecimento e Admin cadastrados com sucesso!');
-        navigate('/');
+        setInfoMessage('Estabelecimento e Admin cadastrados com sucesso!');
+        setInfoOpen(true);
+        // navigate after user closes modal
+        // we'll store a flag to navigate on close
+        setNavigateOnClose(true);
       } catch (err) {
         console.error(err);
-        alert('Erro ao criar estabelecimento. Confira o servidor.');
+        setInfoMessage('Erro ao criar estabelecimento. Confira o servidor.');
+        setInfoOpen(true);
       }
     })();
   };
+
+  const [infoOpen, setInfoOpen] = React.useState(false);
+  const [infoMessage, setInfoMessage] = React.useState<string | undefined>(undefined);
+  const [navigateOnClose, setNavigateOnClose] = React.useState(false);
 
   return (
     <div className="min-h-screen bg-[#06120c] p-4 sm:p-6 flex items-center justify-center py-10">
@@ -218,6 +229,7 @@ const RegistrationView: React.FC = () => {
           </button>
         </form>
       </div>
+      <InfoModal open={infoOpen} title="Mensagem" message={infoMessage} onClose={() => { setInfoOpen(false); if (navigateOnClose) navigate('/'); setNavigateOnClose(false); }} />
     </div>
   );
 };

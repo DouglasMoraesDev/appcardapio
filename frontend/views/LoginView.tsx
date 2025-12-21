@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../store';
 import { ArrowLeft, User, Lock } from 'lucide-react';
+import InfoModal from '../components/InfoModal';
 
 const LoginView: React.FC = () => {
   const { role } = useParams<{ role: string }>();
@@ -20,16 +21,25 @@ const LoginView: React.FC = () => {
         body: JSON.stringify({ username, password, role })
       });
       const data = await res.json();
-      if (!res.ok) return alert(data.error || 'Falha no login');
+      if (!res.ok) {
+        setInfoMessage(data.error || 'Falha no login');
+        setInfoOpen(true);
+        return;
+      }
       setAccessToken(data.accessToken);
       setCurrentUser({ id: String(data.user.id), name: data.user.name, role: data.user.role, username } as any);
+      try { localStorage.setItem('hasRefresh', '1'); } catch(e) {}
       if (data.user.role === 'admin') navigate('/admin');
       else if (data.user.role === 'waiter') navigate('/waiter');
     } catch (err) {
       console.error(err);
-      alert('Erro ao conectar com o servidor');
+      setInfoMessage('Erro ao conectar com o servidor');
+      setInfoOpen(true);
     }
   };
+
+  const [infoOpen, setInfoOpen] = React.useState(false);
+  const [infoMessage, setInfoMessage] = React.useState<string | undefined>(undefined);
 
   return (
     <div className="min-h-screen bg-[#06120c] p-4 sm:p-6 flex items-center justify-center">
@@ -81,6 +91,7 @@ const LoginView: React.FC = () => {
           </button>
         </form>
       </div>
+      <InfoModal open={infoOpen} title="Erro" message={infoMessage} onClose={() => setInfoOpen(false)} />
     </div>
   );
 };

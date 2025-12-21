@@ -107,8 +107,22 @@ router.put('/:id/items/:itemId/status', authenticate, authorize(['admin','waiter
   const id = Number(req.params.id);
   const itemId = Number(req.params.itemId);
   const { status } = req.body;
-  const updated = await prisma.orderItem.update({ where: { id: itemId }, data: { status } });
-  res.json(updated);
+  const updatedItem = await prisma.orderItem.update({ where: { id: itemId }, data: { status } });
+  try {
+    // Recalculate parent order status based on its items
+    const items = await prisma.orderItem.findMany({ where: { orderId: id } });
+    const allDelivered = items.length > 0 && items.every(i => i.status === 'DELIVERED');
+    const anyDelivered = items.some(i => i.status === 'DELIVERED');
+    let newStatus = 'PENDING';
+    if (allDelivered) newStatus = 'DELIVERED';
+    else if (anyDelivered) newStatus = 'PARTIAL';
+    await prisma.order.update({ where: { id }, data: { status: newStatus } });
+    const orderWithItems = await prisma.order.findUnique({ where: { id }, include: { items: true } });
+    return res.json(orderWithItems);
+  } catch (err) {
+    console.error('Failed to recalc order status after item update', err);
+    return res.json(updatedItem);
+  }
 });
 
 export default router;

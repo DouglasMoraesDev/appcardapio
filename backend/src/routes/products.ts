@@ -19,7 +19,7 @@ router.post('/', authenticate, authorize(['admin']), async (req, res) => {
       if (!cat) cat = await prisma.category.create({ data: { name: category } });
       resolvedCategoryId = cat.id;
     }
-    const product = await prisma.product.create({ data: { name, description, price: Number(price || 0), image, categoryId: resolvedCategoryId, isHighlight: !!isHighlight } });
+    const product = await prisma.product.create({ data: { name, description, price: Number(price || 0), image, categoryId: resolvedCategoryId, isHighlight: !!isHighlight }, include: { category: true } });
     return res.json(product);
   } catch (err) {
     console.error('POST /products error', err);
@@ -39,7 +39,7 @@ router.put('/:id', authenticate, authorize(['admin']), async (req, res) => {
       incoming.categoryId = cat.id;
       delete incoming.category;
     }
-    const updated = await prisma.product.update({ where: { id }, data: incoming });
+    const updated = await prisma.product.update({ where: { id }, data: incoming, include: { category: true } });
     return res.json(updated);
   } catch (err: any) {
     console.error('PUT /products/:id error', err);

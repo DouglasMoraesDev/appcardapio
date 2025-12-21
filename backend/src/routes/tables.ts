@@ -27,10 +27,16 @@ router.put('/:id', async (req, res) => {
   const id = Number(req.params.id);
   const data = req.body;
   const servicePaidFlag = req.body.servicePaid as boolean | undefined;
+  // build a clean payload with only allowed table fields to avoid Prisma errors
+  const allowed = ['status', 'number'];
+  const payload: any = {};
+  for (const k of allowed) {
+    if (Object.prototype.hasOwnProperty.call(data, k) && data[k] !== undefined) payload[k] = data[k];
+  }
   try {
     // fetch current table to determine status transition
     const current = await prisma.table.findUnique({ where: { id } });
-    const updated = await prisma.table.update({ where: { id }, data });
+    const updated = await prisma.table.update({ where: { id }, data: payload });
     // If table became AVAILABLE, mark its orders as PAID
     if (data && data.status === 'AVAILABLE') {
       const orders = await prisma.order.findMany({ where: { tableId: id, NOT: { status: 'PAID' } } });
@@ -46,7 +52,9 @@ router.put('/:id', async (req, res) => {
     if (current && current.status === 'AVAILABLE' && data && data.status === 'OCCUPIED') {
       await prisma.order.updateMany({ where: { tableId: id, NOT: { status: 'PAID' } }, data: { status: 'PAID' } }).catch(() => null);
     }
-    return res.json(updated);
+    // fetch updated orders for this table (including PAID) so frontend can display service values
+    const updatedOrders = await prisma.order.findMany({ where: { tableId: id }, include: { items: true } });
+    return res.json({ updated, orders: updatedOrders });
   } catch (error: any) {
     return res.status(500).json({ error: 'Erro ao atualizar mesa', details: error.message });
   }

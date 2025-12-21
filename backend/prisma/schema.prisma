@@ -53,7 +53,7 @@ model Category {
 model Product {
   id          Int       @id @default(autoincrement())
   name        String
-  description String?
+  description String?  @db.Text
   price       Float
   image       String?
   categoryId  Int?
@@ -93,14 +93,14 @@ model OrderItem {
   name        String
   price       Float
   status      String
-  observation String?
+  observation String? @db.Text
 }
 
 model Feedback {
   id          Int      @id @default(autoincrement())
   tableNumber Int
   rating      Int
-  comment     String?
+  comment     String? @db.Text
   timestamp   DateTime @default(now())
 }
 

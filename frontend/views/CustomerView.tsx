@@ -3,7 +3,40 @@ import { useLocation } from 'react-router-dom';
 import { useApp } from '../store';
 import { TableStatus, OrderItem, Table, Order, Product } from '../types';
 import { ShoppingCart, Bell, Receipt, Plus, Minus, X, Check, Search, ChevronLeft, Lock, Star, Sparkles, MessageSquare, Timer, Send, UtensilsCrossed } from 'lucide-react';
-import TrocaMesaModal from './TrocaMesaModal';
+import WaiterAuthModal from '../components/WaiterAuthModal';
+
+// Componente de card fora do componente pai para preservar estado entre renders
+const ProductCard: React.FC<{ product: Product; theme: any; addToCart: (p:any)=>void; openProductModal: (p:Product)=>void; expanded: boolean; onToggle: (id:string)=>void }> = ({ product, theme, addToCart, openProductModal, expanded, onToggle }) => {
+  const desc = product.description || '';
+  const showToggle = desc.length > 180;
+  return (
+    <div onClick={() => openProductModal(product)} style={{ backgroundColor: `${theme.card}80`, borderColor: 'rgba(255,255,255,0.05)' }} className={`rounded-[2rem] overflow-hidden flex gap-5 border p-0 group active:bg-white/5 transition-all cursor-pointer ${expanded ? 'shadow-2xl' : ''}`}>
+      <div className="shrink-0 relative w-40 h-40 overflow-hidden rounded-[1rem]">
+        <div className={`absolute inset-0 bg-cover bg-center transition-transform duration-300`} style={{ backgroundImage: `url(${product.image})`, transform: expanded ? 'scale(1.15)' : 'scale(1)' }}></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+        <div className="absolute left-3 bottom-3">
+          <h4 className="text-white font-bold text-sm line-clamp-1">{product.name}</h4>
+          <span style={{ color: theme.primary }} className="font-serif font-bold text-sm">R$ {(Number(product.price) || 0).toFixed(2)}</span>
+        </div>
+        <button onClick={(e) => { e.stopPropagation(); addToCart(product); }} style={{ backgroundColor: theme.primary }} className="absolute right-3 bottom-3 text-black p-2 rounded-full shadow-lg"><Plus className="w-4 h-4" /></button>
+      </div>
+      <div className="flex-1 flex flex-col justify-between py-3 pr-4">
+        <div className="space-y-1">
+          <div className="flex justify-between items-start">
+            <div className="sr-only">Nome do produto</div>
+            {product.isHighlight && <Star style={{ color: theme.primary }} className="w-3 h-3 fill-current" />}
+          </div>
+          <>
+            <p style={{ color: theme.text }} className={`text-[10px] opacity-70 leading-relaxed whitespace-pre-wrap break-words ${expanded ? '' : 'max-h-[4.5rem] overflow-hidden'}`}>{desc}</p>
+            {showToggle && (
+              <button onClick={(e) => { e.stopPropagation(); onToggle(product.id); }} className="text-[11px] font-bold text-[#d18a59] mt-2">{expanded ? 'Ler menos' : 'Ler mais'}</button>
+            )}
+          </>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const CustomerView: React.FC = () => {
   const { products, addOrder, updateTableStatus, tables, deviceTableId, setDeviceTableId, categories: appCategories, addFeedback, establishment, openTable, fetchOrdersByTable, currentUser } = useApp();
@@ -44,9 +77,12 @@ const CustomerView: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('Todas');
   const [searchTerm, setSearchTerm] = useState('');
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [modalQty, setModalQty] = useState(1);
   const [isBillOpen, setIsBillOpen] = useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
-  const [isChangeTableOpen, setIsChangeTableOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
   const [tableInput, setTableInput] = useState('');
 
@@ -64,6 +100,10 @@ const CustomerView: React.FC = () => {
   const menuCategories = ['Todas', ...appCategories];
 
   const theme = establishment.theme;
+  const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
+  const toggleExpanded = (id: string) => setExpandedMap(prev => ({ ...prev, [id]: !prev[id] }));
+
+  
 
   const filteredProducts = products.filter(p => 
     (activeCategory === 'Todas' || p.category === activeCategory) &&
@@ -105,6 +145,26 @@ const CustomerView: React.FC = () => {
     showNotification(`${product.name} adicionado ao carrinho`);
   };
 
+  const openProductModal = (product: Product) => {
+    setSelectedProduct(product);
+    setModalQty(1);
+  };
+
+  const closeProductModal = () => {
+    setSelectedProduct(null);
+    setModalQty(1);
+  };
+
+  const addToCartMultiple = (product: Product, qty: number) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.productId === product.id);
+      if (existing) return prev.map(item => item.productId === product.id ? { ...item, quantity: item.quantity + qty } : item);
+      return [...prev, { productId: product.id, name: product.name, price: product.price, quantity: qty, status: 'PENDING', observation: '' }];
+    });
+    showNotification(`${product.name} adicionado ao carrinho`, 'success');
+    closeProductModal();
+  };
+
   const updateItemObservation = (id: string, obs: string) => {
     setCart(prev => prev.map(item => item.productId === id ? { ...item, observation: obs } : item));
   };
@@ -119,14 +179,19 @@ const CustomerView: React.FC = () => {
   const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   const handlePlaceOrder = async () => {
-    if (cart.length === 0 || !deviceTableId) return;
-    await addOrder(deviceTableId, cart);
-    // Após adicionar pedido, buscar novamente pedidos da mesa para garantir sincronização
-    const pedidos = await fetchOrdersByTable(deviceTableId);
-    setCustomerOrders(pedidos);
-    setCart([]);
-    setIsCartOpen(false);
-    showNotification("Pedido enviado para a cozinha!", "success");
+    if (cart.length === 0 || !deviceTableId || isPlacingOrder) return;
+    setIsPlacingOrder(true);
+    try {
+      await addOrder(deviceTableId, cart);
+      // Após adicionar pedido, buscar novamente pedidos da mesa para garantir sincronização
+      const pedidos = await fetchOrdersByTable(deviceTableId);
+      setCustomerOrders(pedidos);
+      setCart([]);
+      setIsCartOpen(false);
+      showNotification("Pedido enviado para a cozinha!", "success");
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   const handleCallWaiter = () => {
@@ -156,11 +221,9 @@ const CustomerView: React.FC = () => {
     showNotification("Obrigado pela sua avaliação!", "success");
   };
 
-  // Troca de mesa só com senha do garçom
-  const handleLiberarMesa = () => {
-    setIsChangeTableOpen(false);
-    // redireciona para a tela de abrir mesa para que o número seja informado
-    window.location.hash = '#/abrir-mesa';
+  // Sair do modo cardápio somente após autenticação do garçom
+  const handleExitKiosk = () => {
+    setIsAuthOpen(true);
   };
 
   // Se não houver mesa ativa, não renderiza nada (tablet/garçom sempre tem mesa definida)
@@ -182,10 +245,10 @@ const CustomerView: React.FC = () => {
               </div>
             </div>
             <button 
-              onClick={() => setIsChangeTableOpen(true)}
-              className="text-white hover:opacity-80 transition-opacity text-[9px] uppercase font-bold flex items-center gap-2 bg-black/40 px-4 py-2.5 rounded-full border border-white/10 backdrop-blur-lg">
-              <Lock className="w-3 h-3" /> Alterar
-            </button>
+                onClick={handleExitKiosk}
+                className="text-white hover:opacity-80 transition-opacity text-[9px] uppercase font-bold flex items-center gap-2 bg-black/40 px-4 py-2.5 rounded-full border border-white/10 backdrop-blur-lg">
+                <Lock className="w-3 h-3" /> Sair
+              </button>
           </div>
         </div>
       </div>
@@ -200,7 +263,7 @@ const CustomerView: React.FC = () => {
              {highlights.map(item => (
                <div 
                  key={item.id} 
-                 onClick={() => addToCart(item)}
+                 onClick={() => openProductModal(item)}
                  style={{ backgroundColor: theme.card, borderColor: 'rgba(255,255,255,0.05)' }}
                  className="snap-start min-w-[260px] rounded-[2.5rem] overflow-hidden border relative active:scale-95 transition-all shadow-2xl group cursor-pointer"
                >
@@ -209,9 +272,9 @@ const CustomerView: React.FC = () => {
                    <h4 className="font-bold text-base text-white truncate">{item.name}</h4>
                    <p style={{ color: theme.primary }} className="font-serif font-bold text-xl leading-none">R$ {item.price.toFixed(2)}</p>
                  </div>
-                 <div style={{ backgroundColor: theme.primary }} className="absolute bottom-6 right-6 text-black p-2.5 rounded-full shadow-lg">
+                  <div style={{ backgroundColor: theme.primary }} className="absolute bottom-6 right-6 text-black p-2.5 rounded-full shadow-lg">
                     <Plus className="w-4 h-4" />
-                 </div>
+                  </div>
                </div>
              ))}
            </div>
@@ -257,53 +320,14 @@ const CustomerView: React.FC = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {productsList.map(product => (
-                <div key={product.id} style={{ backgroundColor: `${theme.card}80`, borderColor: 'rgba(255,255,255,0.05)' }} className="rounded-[2rem] overflow-hidden flex gap-5 border p-4 group active:bg-white/5 transition-all">
-                  <div className="w-28 h-28 rounded-2xl bg-cover bg-center shrink-0 border border-white/10" style={{ backgroundImage: `url(${product.image})` }}></div>
-                  <div className="flex-1 flex flex-col justify-between py-1">
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-bold text-sm text-white group-hover:opacity-70 transition-opacity">{product.name}</h4>
-                        {product.isHighlight && <Star style={{ color: theme.primary }} className="w-3 h-3 fill-current" />}
-                      </div>
-                      <p style={{ color: theme.text }} className="text-[10px] opacity-70 leading-relaxed line-clamp-3">{product.description}</p>
-                    </div>
-                    <div className="flex justify-between items-center mt-3">
-                      <span style={{ color: theme.primary }} className="font-serif font-bold text-lg">R$ {product.price.toFixed(2)}</span>
-                      <button 
-                        onClick={() => addToCart(product)}
-                        style={{ backgroundColor: theme.primary }}
-                        className="text-black p-2.5 rounded-2xl hover:scale-110 transition-all shadow-lg active:scale-95">
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <ProductCard key={product.id} product={product} theme={theme} addToCart={addToCart} openProductModal={openProductModal} expanded={!!expandedMap[product.id]} onToggle={toggleExpanded} />
               ))}
             </div>
           </div>
         ))}
       </div>
 
-      {tableOrders.some(o => o.status !== 'PAID') && (
-        <div className="fixed bottom-32 left-6 right-6 z-50 animate-in slide-in-from-bottom-10">
-           <div style={{ backgroundColor: `${theme.card}F2` }} className="p-5 rounded-3xl border border-white/10 shadow-2xl flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                 <div style={{ backgroundColor: `${theme.primary}33` }} className="p-3 rounded-2xl">
-                    <Timer style={{ color: theme.primary }} className="w-5 h-5 animate-pulse" />
-                 </div>
-                 <div>
-                    <p style={{ color: theme.text }} className="text-[10px] uppercase font-bold tracking-widest opacity-60">Seu Pedido está</p>
-                    <p className="text-xs font-bold text-white uppercase">Em Preparação na Cozinha</p>
-                 </div>
-              </div>
-              <div className="flex gap-1">
-                 {[1, 2, 3, 4].map(i => (
-                    <div key={i} style={{ backgroundColor: i <= 2 ? theme.primary : 'rgba(255,255,255,0.1)' }} className="w-6 h-1 rounded-full"></div>
-                 ))}
-              </div>
-           </div>
-        </div>
-      )}
+      {/* Removida a grande faixa de status para uma experiência menos intrusiva */}
 
       <div style={{ background: `linear-gradient(to top, #000, transparent)` }} className="fixed bottom-0 left-0 right-0 z-50 p-8">
         <div className="max-w-xl mx-auto flex gap-5">
@@ -323,6 +347,9 @@ const CustomerView: React.FC = () => {
             <div className="flex flex-col items-start leading-none">
               <span className="text-xs uppercase tracking-[0.2em] font-bold">Meu Pedido</span>
               <span className="text-[10px] font-bold opacity-70">Total: R$ {cartTotal.toFixed(2)}</span>
+              {tableOrders.some(o => o.status !== 'PAID') && (
+                <span className="mt-1 inline-block text-[10px] font-black uppercase text-white bg-red-600 px-2 py-1 rounded-full">Em preparo</span>
+              )}
             </div>
             {cart.length > 0 && (
               <span className="absolute top-3 right-5 bg-black text-white text-[10px] w-6 h-6 rounded-full flex items-center justify-center border border-white/10 font-black shadow-lg">
@@ -512,8 +539,33 @@ const CustomerView: React.FC = () => {
         </div>
       )}
 
-      {isChangeTableOpen && (
-        <TrocaMesaModal onLiberar={handleLiberarMesa} onClose={() => setIsChangeTableOpen(false)} />
+      <WaiterAuthModal open={isAuthOpen} onClose={() => setIsAuthOpen(false)} onSuccess={() => { setIsAuthOpen(false); setDeviceTableId(null); window.location.hash = '#/'; }} />
+
+      {selectedProduct && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={closeProductModal}></div>
+          <div style={{ backgroundColor: theme.card }} className="relative z-10 w-full max-w-md rounded-2xl p-6 border border-white/5 shadow-2xl max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-start gap-4">
+              <div className="w-28 h-28 bg-cover bg-center rounded-lg" style={{ backgroundImage: `url(${selectedProduct.image})` }}></div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-white">{selectedProduct.name}</h3>
+                <p className="text-sm text-gray-300 mt-2 whitespace-pre-wrap break-words">{selectedProduct.description}</p>
+                <div className="mt-4 flex items-center gap-3">
+                  <div className="text-2xl font-serif text-[#d18a59]">R$ {(Number(selectedProduct.price) || 0).toFixed(2)}</div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex items-center gap-3">
+              <div className="flex items-center bg-black/10 rounded-2xl p-2">
+                <button onClick={() => setModalQty(q => Math.max(1, q - 1))} className="px-3 py-2">-</button>
+                <div className="px-4 font-bold">{modalQty}</div>
+                <button onClick={() => setModalQty(q => q + 1)} className="px-3 py-2">+</button>
+              </div>
+              <button onClick={() => addToCartMultiple(selectedProduct, modalQty)} style={{ backgroundColor: theme.primary }} className="text-black px-4 py-3 rounded-2xl font-bold">Adicionar</button>
+              <button onClick={closeProductModal} className="px-4 py-3 rounded-2xl bg-white/5">Fechar</button>
+            </div>
+          </div>
+        </div>
       )}
 
 

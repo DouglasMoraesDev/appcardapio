@@ -66,7 +66,7 @@ const SetupDevice = () => {
 };
 
 const NavigationWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, setCurrentUser, establishment } = useApp();
+  const { currentUser, setCurrentUser, establishment, deviceTableId } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -95,9 +95,11 @@ const NavigationWrapper: React.FC<{ children: React.ReactNode }> = ({ children }
                <p className="text-sm font-bold text-white">{currentUser.name}</p>
              </div>
           </div>
-          <button onClick={handleLogout} className="text-gray-500 hover:text-red-500 transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em]">
-            <LogOut className="w-4 h-4" /> Sair
-          </button>
+          {!deviceTableId && (
+            <button onClick={handleLogout} className="text-gray-500 hover:text-red-500 transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em]">
+              <LogOut className="w-4 h-4" /> Sair
+            </button>
+          )}
         </header>
       )}
       <main className="flex-1">

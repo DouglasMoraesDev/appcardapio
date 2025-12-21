@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../store';
 import { Lock } from 'lucide-react';
 
-const TrocaMesaModal: React.FC<{ onLiberar: () => void; onClose: () => void }> = ({ onLiberar, onClose }) => {
+const TrocaMesaModal: React.FC<{ deviceTableId?: string | null; onLiberar: () => void; onClose: () => void }> = ({ deviceTableId, onLiberar, onClose }) => {
   const { setDeviceTableId, waiters, setAccessToken, setCurrentUser } = useApp();
   const [senha, setSenha] = useState('');
+    const [selectedWaiterId, setSelectedWaiterId] = useState<string | undefined>(undefined);
+    const [storedCreator, setStoredCreator] = useState<{id: string, name?: string, username?: string} | null>(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
 
@@ -13,28 +15,72 @@ const TrocaMesaModal: React.FC<{ onLiberar: () => void; onClose: () => void }> =
     setErro('');
     setLoading(true);
     try {
-      // Valida senha do garçom no backend (usa cookie de sessão)
-      const res = await fetch('http://localhost:4000/api/auth/login', {
+      // allow storedCreator as fallback when select isn't available
+      if (!selectedWaiterId && !storedCreator) {
+        setErro('Selecione um garçom');
+        setLoading(false);
+        return;
+      }
+      const waiterIdToUse = selectedWaiterId || (storedCreator ? storedCreator.id : undefined);
+      // Valida senha do garçom no backend
+      const waiter = waiters.find(w => String(w.id) === String(waiterIdToUse));
+      const username = waiter ? (waiter as any).username : (storedCreator ? storedCreator.username : undefined);
+      const base = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? 'http://localhost:4000/api' : '/api';
+      const res = await fetch(`${base}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ username: 'douglas', password: senha, role: 'waiter' })
+        body: JSON.stringify({ username, password: senha, role: 'waiter' })
       });
       if (!res.ok) {
         setErro('Senha incorreta!');
         setLoading(false);
         return;
       }
+      const data = await res.json();
+      // store mapping to indicate this waiter opened the table (store id/name/username when possible)
+      try {
+        if (deviceTableId && selectedWaiterId) {
+          const waiterObj = waiters.find(w => String(w.id) === String(selectedWaiterId));
+          const payload = { id: String(selectedWaiterId), name: waiterObj?.name || data.user?.name, username: (waiterObj as any)?.username || data.user?.username };
+          localStorage.setItem(`tableCreator_${deviceTableId}`, JSON.stringify(payload));
+        }
+      } catch (e) {}
+      // salva token/usuario no contexto para entrar como garçom
+      try { setAccessToken(data.accessToken); } catch (e) {}
+      try { setCurrentUser({ id: String(data.user.id), name: data.user.name, role: data.user.role } as any); } catch(e) {}
+      try { localStorage.setItem('hasRefresh', '1'); } catch(e) {}
       setDeviceTableId(null);
       onLiberar();
-      // redirect to abrir-mesa so the operator can input the new table number
-      window.location.hash = '#/abrir-mesa';
+      // redireciona para painel do garçom já autenticado
+      window.location.hash = '#/waiter';
     } catch (err) {
       setErro('Erro ao validar senha.');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    try {
+      if (deviceTableId) {
+        const stored = localStorage.getItem(`tableCreator_${deviceTableId}`);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            setStoredCreator(parsed);
+            if (parsed && parsed.id) setSelectedWaiterId(parsed.id);
+          } catch (e) {
+            // backwards compat: stored id as string
+            setSelectedWaiterId(stored);
+            setStoredCreator(stored ? { id: stored } as any : null);
+          }
+        } else if (waiters && waiters.length > 0) setSelectedWaiterId(waiters[0].id);
+      } else if (waiters && waiters.length > 0) setSelectedWaiterId(waiters[0].id);
+    } catch (e) {
+      if (waiters && waiters.length > 0) setSelectedWaiterId(waiters[0].id);
+    }
+  }, [deviceTableId, waiters]);
 
   return (
     <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -46,6 +92,18 @@ const TrocaMesaModal: React.FC<{ onLiberar: () => void; onClose: () => void }> =
           <p className="text-[10px] text-white uppercase font-bold opacity-80">Informe a senha do garçom</p>
         </div>
         <form onSubmit={handleLiberar} className="space-y-6">
+          <div>
+              <label className="text-[10px] text-gray-400 uppercase font-bold">Garçom</label>
+              {storedCreator ? (
+                <div className="w-full bg-black/50 border border-white/10 rounded-3xl py-3 text-white px-4">{storedCreator.name || 'Garçom'}</div>
+              ) : (waiters && waiters.length > 0 ? (
+                <select value={selectedWaiterId} onChange={e => setSelectedWaiterId(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-3xl py-3 text-white px-4">
+                  {waiters.map(w => (<option key={w.id} value={w.id}>{w.name}</option>))}
+                </select>
+              ) : (
+                <div className="w-full bg-black/50 border border-white/10 rounded-3xl py-3 text-white px-4">{storedCreator?.name || 'Garçom'}</div>
+              ))}
+            </div>
           <input
             type="password"
             placeholder="Senha do Garçom"

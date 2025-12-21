@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../store';
 import { Plus, Trash2, Edit3, Beer, Users, Grid, DollarSign, Image as ImageIcon, Tag, X, Check, Star, TrendingUp, BarChart3, PieChart, ShoppingBag, MessageSquare, Clock, Settings, Palette, Lock, Save } from 'lucide-react';
+import ConfirmModal from '../components/ConfirmModal';
+import InfoModal from '../components/InfoModal';
+import PaymentConfirmModal from '../components/PaymentConfirmModal';
+import { TableStatus } from '../types';
 import { Product } from '../types';
 
 
@@ -11,14 +15,14 @@ const AdminDashboard: React.FC = () => {
     categories, addCategory, deleteCategory, updateCategory,
     tables, orders, feedbacks, establishment, setEstablishment,
   addProduct, deleteProduct, saveEstablishment,
-  updateProduct,
+  updateProduct, updateTableStatus,
   } = useApp();
   // Cálculo do NPS médio (averageRating)
   const averageRating = feedbacks.length > 0 
     ? feedbacks.reduce((acc, f) => acc + f.rating, 0) / feedbacks.length 
     : 0;
   
-  const [activeTab, setActiveTab] = useState<'finance' | 'menu' | 'categories' | 'waiters' | 'feedbacks' | 'settings' | 'closed'>('finance');
+  const [activeTab, setActiveTab] = useState<'finance' | 'mesas' | 'menu' | 'categories' | 'waiters' | 'feedbacks' | 'settings' | 'closed'>('finance');
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditingCategory, setIsEditingCategory] = useState<string | null>(null);
@@ -33,6 +37,15 @@ const AdminDashboard: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [closedTables, setClosedTables] = useState<any[]>([]);
   const [isLoadingClosed, setIsLoadingClosed] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+  const [waiterToDelete, setWaiterToDelete] = useState<string | null>(null);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [infoMessage, setInfoMessage] = useState<string | undefined>(undefined);
+  const [finalizingTableId, setFinalizingTableId] = useState<string | null>(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentModalAmount, setPaymentModalAmount] = useState<number | undefined>(undefined);
+  const [paymentModalServicePercent, setPaymentModalServicePercent] = useState<number | undefined>(undefined);
 
   const handleUpdateTheme = (key: string, value: string) => {
     setEstablishment({
@@ -48,10 +61,16 @@ const AdminDashboard: React.FC = () => {
     setIsSaving(true);
     try {
       const ok = await saveEstablishment();
-      if (ok) alert('Alterações salvas com sucesso!');
-      else alert('Erro ao salvar alterações.');
+      if (ok) {
+        setInfoMessage('Alterações salvas com sucesso!');
+        setInfoOpen(true);
+      } else {
+        setInfoMessage('Erro ao salvar alterações.');
+        setInfoOpen(true);
+      }
     } catch (e) {
-      alert('Erro ao salvar alterações.');
+      setInfoMessage('Erro ao salvar alterações.');
+      setInfoOpen(true);
     }
     setIsSaving(false);
   };
@@ -80,7 +99,8 @@ const AdminDashboard: React.FC = () => {
 
   const handleAddWaiter = () => {
     if (!waiterName.trim() || !waiterPassword.trim()) {
-      alert("Por favor, informe o nome e a senha do garçom.");
+      setInfoMessage('Por favor, informe o nome e a senha do garçom.');
+      setInfoOpen(true);
       return;
     }
     addWaiter(waiterName, waiterPassword);
@@ -215,7 +235,7 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'mesas' && (
+      {activeTab === 'closed' && (
         <div className="space-y-6">
           <h3 className="text-2xl font-serif text-white">Mesas Finalizadas</h3>
           <div className="grid grid-cols-1 gap-4">
@@ -227,14 +247,14 @@ const AdminDashboard: React.FC = () => {
                 const tid = String(o.tableId);
                 if (!grouped[tid]) grouped[tid] = { tableNumber: undefined, orders: [], total: 0 };
                 grouped[tid].orders.push(o);
-                grouped[tid].total += Number(o.total || 0);
+                grouped[tid].total += Number(o.total || 0) + Number(o.serviceValue || 0);
               }
               const rows = Object.entries(grouped);
               if (rows.length === 0) return <p className="text-gray-500 italic">Nenhuma mesa finalizada ainda.</p>;
               return rows.map(([tid, g]) => {
                 const table = tables.find(t => String(t.id) === tid);
                 const service = establishment.serviceCharge || 0;
-                const totalWithService = g.total + (g.total * (service/100));
+                const totalWithService = g.total;
                 return (
                   <div key={tid} className="bg-[#0d1f15] p-6 rounded-2xl border border-white/5">
                     <div className="flex justify-between items-start">
@@ -252,7 +272,10 @@ const AdminDashboard: React.FC = () => {
                       {g.orders.map((o, i) => (
                         <div key={o.id} className="flex justify-between items-center">
                           <div className="text-sm text-white">Cliente {i+1}</div>
-                          <div className="text-sm text-gray-300">R$ {Number(o.total).toFixed(2)}</div>
+                          <div className="text-sm text-gray-300 text-right">
+                            <div>R$ {Number(o.total).toFixed(2)}</div>
+                            <div className="text-[11px] text-gray-500">Serviço: R$ {(Number(o.serviceValue || 0)).toFixed(2)} {o.servicePaid ? '' : '(não pago)'}</div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -260,6 +283,37 @@ const AdminDashboard: React.FC = () => {
                 );
               });
             })()}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'mesas' && (
+        <div className="space-y-6">
+          <h3 className="text-2xl font-serif text-white">Gerenciar Mesas</h3>
+          <div className="grid grid-cols-1 gap-4">
+              {tables.filter(t => t.status !== TableStatus.AVAILABLE).map(table => {
+              const tableOrders = orders.filter(o => String(o.tableId) === String(table.id));
+              const subtotal = tableOrders.reduce((s, o) => s + Number(o.total || 0), 0);
+              const service = establishment.serviceCharge || 0;
+              return (
+                <div key={table.id} className="bg-[#0d1f15] p-6 rounded-2xl border border-white/5 flex justify-between items-center">
+                  <div>
+                    <h4 className="text-lg font-bold text-white">Mesa {table.number}</h4>
+                    <p className="text-xs text-gray-400">Status: {table.status} • Pedidos: {tableOrders.length}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="text-sm text-gray-400">Subtotal</div>
+                      <div className="text-xl font-serif text-[#d18a59]">R$ {subtotal.toFixed(2)}</div>
+                    </div>
+                    <button onClick={() => { setFinalizingTableId(String(table.id)); setPaymentModalAmount(subtotal); setPaymentModalServicePercent(service); setPaymentModalOpen(true); }} className="px-4 py-2 rounded-2xl bg-[#d18a59] text-black font-bold">Finalizar Mesa</button>
+                  </div>
+                </div>
+              );
+            })}
+            {tables.filter(t => t.status !== TableStatus.AVAILABLE).length === 0 && (
+              <p className="text-gray-500">Nenhuma mesa ativa no momento.</p>
+            )}
           </div>
         </div>
       )}
@@ -277,23 +331,28 @@ const AdminDashboard: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {products.map(product => (
               <div key={product.id} className="bg-[#0d1f15] rounded-3xl overflow-hidden border border-white/5 group hover:border-[#d18a59]/50 transition-all relative">
-                <button 
-                  onClick={() => toggleProductHighlight(product.id)}
-                  className={`absolute top-3 right-3 z-10 p-2 rounded-full backdrop-blur-md transition-all ${product.isHighlight ? 'bg-[#d18a59] text-black scale-110' : 'bg-black/50 text-white hover:text-[#d18a59]'}`}
-                >
-                  <Star className={`w-4 h-4 ${product.isHighlight ? 'fill-current' : ''}`} />
-                </button>
-                <div className="h-44 bg-cover bg-center" style={{ backgroundImage: `url(${product.image})` }}></div>
-                <div className="p-5 space-y-2">
-                  <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-white text-sm line-clamp-1">{product.name}</h4>
-                    <span className="text-[#d18a59] font-bold text-xs whitespace-nowrap">R$ {product.price.toFixed(2)}</span>
+                <div className="relative h-56 bg-cover bg-center" style={{ backgroundImage: `url(${product.image})` }}>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                  <div className="absolute left-4 bottom-4">
+                    <h4 className="text-white font-bold text-lg line-clamp-1">{product.name}</h4>
+                    <span className="text-[#d18a59] font-bold text-sm">R$ {(Number(product.price) || 0).toFixed(2)}</span>
                   </div>
-                  <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest">{typeof product.category === 'string' ? product.category : product.category?.name}</p>
-                    <div className="flex gap-2 pt-4">
-                    <button onClick={() => setEditingProduct(product)} className="flex-1 bg-[#06120c] p-2.5 rounded-xl text-gray-500 hover:text-white transition-colors flex justify-center border border-white/5"><Edit3 className="w-4 h-4" /></button>
-                    <button onClick={() => { if(confirm('Excluir?')) deleteProduct(product.id) }} className="flex-1 bg-[#06120c] p-2.5 rounded-xl text-gray-500 hover:text-red-400 transition-colors flex justify-center border border-white/5"><Trash2 className="w-4 h-4" /></button>
+                  <div className="absolute top-3 right-3 z-10">
+                    <button 
+                      onClick={() => toggleProductHighlight(product.id)}
+                      className={`p-2 rounded-full backdrop-blur-md transition-all ${product.isHighlight ? 'bg-[#d18a59] text-black' : 'bg-black/50 text-white hover:text-[#d18a59]'}`}
+                    >
+                      <Star className={`w-4 h-4 ${product.isHighlight ? 'fill-current' : ''}`} />
+                    </button>
                   </div>
+                  <div className="absolute top-3 left-3 z-10 flex gap-2">
+                    <button onClick={() => setEditingProduct(product)} className="bg-black/40 p-2 rounded-md text-white hover:bg-black/60"><Edit3 className="w-4 h-4" /></button>
+                    <button onClick={() => setProductToDelete(product.id)} className="bg-black/40 p-2 rounded-md text-white hover:bg-black/60"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <p className="text-gray-400 text-xs uppercase font-bold tracking-widest">{typeof product.category === 'string' ? product.category : product.category?.name}</p>
+                  <p className="text-sm text-gray-300 line-clamp-2 mt-2">{product.description}</p>
                 </div>
               </div>
             ))}
@@ -301,11 +360,31 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
 
+      <PaymentConfirmModal open={paymentModalOpen} amount={paymentModalAmount} servicePercent={paymentModalServicePercent} showServiceToggle={true} onConfirm={async (servicePaid) => {
+        setPaymentModalOpen(false);
+        if (!finalizingTableId) return;
+        try {
+          await updateTableStatus(finalizingTableId, TableStatus.AVAILABLE, servicePaid);
+          setInfoMessage('Mesa finalizada com sucesso.');
+          setInfoOpen(true);
+        } catch (e) {
+          console.error('Erro ao finalizar mesa', e);
+          setInfoMessage('Erro ao finalizar mesa.');
+          setInfoOpen(true);
+        }
+        setFinalizingTableId(null);
+      }} onCancel={() => { setPaymentModalOpen(false); setFinalizingTableId(null); }} />
+
       {editingProduct && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/80" onClick={() => setEditingProduct(null)}></div>
           <form onSubmit={async (e) => {
             e.preventDefault();
+            if (!editingProduct || !editingProduct.id) {
+              setInfoMessage('Produto inválido. Atualize a página e tente novamente.');
+              setInfoOpen(true);
+              return;
+            }
             const patch: Partial<Product> = {
               name: editingProduct.name,
               price: Number(editingProduct.price),
@@ -316,7 +395,11 @@ const AdminDashboard: React.FC = () => {
             };
             try {
               await updateProduct(String(editingProduct.id), patch as any);
-            } catch {}
+            } catch (err) {
+              console.error('Erro ao atualizar produto', err);
+              setInfoMessage('Erro ao atualizar produto.');
+              setInfoOpen(true);
+            }
             setEditingProduct(null);
           }} className="relative z-50 w-full max-w-full sm:max-w-2xl p-6 sm:p-8 rounded-t-[2rem] sm:rounded-2xl bg-[#0d1f15] border border-white/5">
             <h3 className="text-xl font-bold text-white mb-4">Editar Produto</h3>
@@ -386,7 +469,7 @@ const AdminDashboard: React.FC = () => {
                       </td>
                       <td className="p-6 text-right space-x-6">
                         <button onClick={() => { setIsEditingCategory(catName); setNewCatName(catName); }} className="text-gray-500 hover:text-[#d18a59] transition-colors"><Edit3 className="w-5 h-5" /></button>
-                        <button onClick={() => { if(confirm('Excluir categoria e mover produtos para Geral?')) deleteCategory(catName); }} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 className="w-5 h-5" /></button>
+                        <button onClick={() => setCategoryToDelete(catName)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 className="w-5 h-5" /></button>
                       </td>
                     </tr>
                   );
@@ -445,7 +528,7 @@ const AdminDashboard: React.FC = () => {
                     <tr key={waiter.id} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
                       <td className="p-6 font-bold text-gray-200">{waiter.name}</td>
                       <td className="p-6 text-right">
-                        <button onClick={() => { if(confirm('Remover colaborador?')) deleteWaiter(waiter.id); }} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 className="w-5 h-5" /></button>
+                        <button onClick={() => setWaiterToDelete(waiter.id)} className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 className="w-5 h-5" /></button>
                       </td>
                     </tr>
                   ))
@@ -647,6 +730,10 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
       )}
+      <ConfirmModal open={!!productToDelete} title="Excluir Produto" message="Deseja realmente excluir este produto?" onConfirm={async () => { if (productToDelete) await deleteProduct(productToDelete); setProductToDelete(null); }} onCancel={() => setProductToDelete(null)} />
+      <ConfirmModal open={!!categoryToDelete} title="Excluir Categoria" message="Excluir categoria e mover produtos para Geral?" onConfirm={async () => { if (categoryToDelete) await deleteCategory(categoryToDelete); setCategoryToDelete(null); }} onCancel={() => setCategoryToDelete(null)} />
+      <ConfirmModal open={!!waiterToDelete} title="Remover Colaborador" message="Remover colaborador?" onConfirm={async () => { if (waiterToDelete) await deleteWaiter(waiterToDelete); setWaiterToDelete(null); }} onCancel={() => setWaiterToDelete(null)} />
+      <InfoModal open={infoOpen} title="Mensagem" message={infoMessage} onClose={() => { setInfoOpen(false); setInfoMessage(undefined); }} />
     </div>
   );
 };
