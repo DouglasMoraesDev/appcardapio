@@ -83,6 +83,27 @@ const RegistrationView: React.FC = () => {
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [infoMessage, setInfoMessage] = React.useState<string | undefined>(undefined);
   const [navigateOnClose, setNavigateOnClose] = React.useState(false);
+  const [navigatePath, setNavigatePath] = React.useState<string>('/');
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const API = (import.meta.env.VITE_API_URL as string) || 'http://localhost:4000/api';
+        const res = await fetch(`${API.replace(/\/$/, '')}/establishment`);
+        if (res.ok) {
+          const body = await res.json();
+          if (body) {
+            setInfoMessage('Estabelecimento já cadastrado. Faça login para editar.');
+            setInfoOpen(true);
+            setNavigateOnClose(true);
+            setNavigatePath('/login');
+          }
+        }
+      } catch (err) {
+        // ignore network errors here; user can still try to register
+      }
+    })();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#06120c] p-4 sm:p-6 flex items-center justify-center py-10">
@@ -229,7 +250,7 @@ const RegistrationView: React.FC = () => {
           </button>
         </form>
       </div>
-      <InfoModal open={infoOpen} title="Mensagem" message={infoMessage} onClose={() => { setInfoOpen(false); if (navigateOnClose) navigate('/'); setNavigateOnClose(false); }} />
+      <InfoModal open={infoOpen} title="Mensagem" message={infoMessage} onClose={() => { setInfoOpen(false); if (navigateOnClose) navigate(navigatePath); setNavigateOnClose(false); }} />
     </div>
   );
 };

@@ -1,8 +1,8 @@
 -- AlterTable
-ALTER TABLE `feedback` MODIFY `comment` TEXT NULL;
+ALTER TABLE `Feedback` MODIFY `comment` TEXT NULL;
 
 -- AlterTable
-ALTER TABLE `orderitem` MODIFY `observation` TEXT NULL;
+ALTER TABLE `OrderItem` MODIFY `observation` TEXT NULL;
 
 -- AlterTable
-ALTER TABLE `product` MODIFY `description` TEXT NULL;
+ALTER TABLE `Product` MODIFY `description` TEXT NULL;

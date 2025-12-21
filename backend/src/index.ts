@@ -10,6 +10,7 @@ import ordersRouter from './routes/orders';
 import feedbacksRouter from './routes/feedbacks';
 import establishmentRouter from './routes/establishment';
 import authRouter from './routes/auth';
+import path from 'path';
 
 dotenv.config();
 
@@ -36,6 +37,20 @@ app.use('/api/feedbacks', feedbacksRouter);
 app.use('/api/establishment', establishmentRouter);
 app.use('/api/auth', authRouter);
 
-app.get('/', (req, res) => res.send({ ok: true, api: '/api' }));
+// API root
+app.get('/api', (req, res) => res.send({ ok: true, api: '/api' }));
+
+// Serve frontend static files from frontend/dist when present
+const staticPath = path.join(__dirname, '..', '..', 'frontend', 'dist');
+try {
+	app.use(express.static(staticPath));
+	app.get('*', (req, res) => {
+		// If request starts with /api, ignore and let API routes handle it
+		if (req.path.startsWith('/api')) return res.status(404).send({ error: 'API route not found' });
+		return res.sendFile(path.join(staticPath, 'index.html'));
+	});
+} catch (err) {
+	console.warn('Frontend static assets not found, skipping static serve');
+}
 
 app.listen(port, () => console.log(`Server running on port ${port}`));
